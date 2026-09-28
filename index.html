@@ -13,7 +13,14 @@
     .landing{position:relative;min-height:100vh;display:grid;place-items:center;overflow:hidden;padding:24px}
     .floating-topgolf-logo{position:fixed;top:0;left:0;z-index:1;width:clamp(82px,7vw,112px);height:auto;max-height:58px;object-fit:contain;pointer-events:none;user-select:none;will-change:transform;filter:url(#topgolfLogoColor) drop-shadow(0 8px 18px rgba(0,0,0,.32))}
     .landing-card{position:relative;z-index:2;width:min(92vw,520px);padding:52px 42px 42px;text-align:center;background:var(--panel);border:1px solid #3a3a40;border-radius:14px;box-shadow:0 28px 80px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.03)}
-    .brand-mark{width:58px;height:58px;display:grid;place-items:center;margin:0 auto 16px;border:1px solid #486f9a;border-radius:14px;background:linear-gradient(145deg,#21364d,#142333);color:#9fc4ec;font:800 1.45rem Georgia,"Times New Roman",serif;box-shadow:0 10px 28px rgba(34,80,126,.2)}
+    .brand-mark{width:58px;height:58px;display:grid;place-items:center;margin:0 auto 16px;border:1px solid #486f9a;border-radius:14px;background:linear-gradient(145deg,#21364d,#142333);color:#9fc4ec;font:800 1.45rem Georgia,"Times New Roman",serif;box-shadow:0 10px 28px rgba(34,80,126,.2);cursor:pointer;user-select:none;transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
+    .brand-mark.counter-enabled{border:3px solid #6f9fd1;box-shadow:0 0 0 3px rgba(111,159,209,.12),0 10px 30px rgba(34,80,126,.32);transform:scale(1.035)}
+    .collision-counter{position:absolute;top:22px;right:24px;z-index:3;display:flex;flex-direction:column;align-items:flex-end;gap:1px;opacity:0;visibility:hidden;transform:translateY(-6px) scale(.96);transition:opacity .22s ease,transform .24s cubic-bezier(.2,.8,.2,1),visibility 0s linear .24s;pointer-events:none}
+    .collision-counter.visible{opacity:1;visibility:visible;transform:translateY(0) scale(1);transition-delay:0s}
+    .collision-count{min-width:42px;color:#dbeaff;font:800 1.55rem/1 Georgia,"Times New Roman",serif;text-align:right;font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(111,159,209,.2)}
+    .collision-count.bump{animation:collisionCountBump .3s cubic-bezier(.2,.8,.2,1)}
+    .collision-label{color:#7898b9;font-size:.54rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+    @keyframes collisionCountBump{0%{transform:scale(1)}45%{transform:scale(1.18);color:#fff}100%{transform:scale(1)}}
     h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(2.6rem,8vw,4rem);line-height:.98;letter-spacing:-.045em;color:#fff;text-shadow:2px 2px 0 #2c2c31}
     .brand-title .brand-ar{color:#6f9fd1}
     .brand-title .brand-matic{color:#fff}
@@ -274,7 +281,11 @@
       aria-hidden="true"
     />
     <section class="landing-card">
-      <div class="brand-mark">AR</div>
+      <div id="collisionCounter" class="collision-counter" aria-live="polite" aria-hidden="true">
+        <div id="collisionCount" class="collision-count">0</div>
+        <div class="collision-label">Collisions</div>
+      </div>
+      <div id="landingBrandMark" class="brand-mark" role="button" tabindex="0" aria-pressed="false" title="Double-click to toggle collision counter">AR</div>
       <h1 class="brand-title"><span class="brand-ar">AR</span><span class="brand-matic">matic</span></h1>
       <div id="uploadZone" class="upload-zone">
         <button id="uploadButton" class="upload-button" type="button">Upload BEOs</button>
@@ -404,6 +415,9 @@
     const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
     const floatingTopgolfLogo=$("floatingTopgolfLogo");
     const landingCard=document.querySelector(".landing-card");
+    const landingBrandMark=$("landingBrandMark");
+    const collisionCounter=$("collisionCounter");
+    const collisionCount=$("collisionCount");
     const logoSpeedSlider=$("logoSpeedSlider");
 
     let activePreviewPdf=null;
@@ -436,6 +450,8 @@
       let started = false;
       let mask = null;
       let lastHue = null;
+      let collisionTotal = 0;
+      let counterVisible = false;
       let speedMultiplier = Number(logoSpeedSlider?.value || 1);
 
       // Use the solid visible portion of the white PNG for collision detection.
@@ -443,6 +459,25 @@
       // with a wall/card instead of bouncing on barely-visible edge pixels.
       const alphaThreshold = 200;
       const touchInset = 2;
+
+      function setCounterVisible(nextVisible) {
+        counterVisible=Boolean(nextVisible);
+        landingBrandMark?.classList.toggle("counter-enabled",counterVisible);
+        landingBrandMark?.setAttribute("aria-pressed",counterVisible?"true":"false");
+        collisionCounter?.classList.toggle("visible",counterVisible);
+        collisionCounter?.setAttribute("aria-hidden",counterVisible?"false":"true");
+      }
+
+      function recordCollision() {
+        collisionTotal++;
+
+        if(!collisionCount)return;
+
+        collisionCount.textContent=String(collisionTotal);
+        collisionCount.classList.remove("bump");
+        void collisionCount.offsetWidth;
+        collisionCount.classList.add("bump");
+      }
 
       function placeLogo() {
         floatingTopgolfLogo.style.transform = `translate3d(${x}px, ${y}px, 0)`;
@@ -760,6 +795,7 @@
 
         if (collided) {
           randomizeLogoColor();
+          recordCollision();
         }
 
         placeLogo();
@@ -773,6 +809,18 @@
         lastTime = performance.now();
         started = true;
       }
+
+      landingBrandMark?.addEventListener("dblclick",(event)=>{
+        event.preventDefault();
+        setCounterVisible(!counterVisible);
+      });
+
+      landingBrandMark?.addEventListener("keydown",(event)=>{
+        if(event.key==="Enter"){
+          event.preventDefault();
+          setCounterVisible(!counterVisible);
+        }
+      });
 
       logoSpeedSlider?.addEventListener("input", () => {
         speedMultiplier = Math.round(Number(logoSpeedSlider.value || 1) * 100) / 100;
