@@ -121,6 +121,11 @@
 
     .subtotal-check{position:absolute;top:10px;left:10px;z-index:3;width:26px;height:26px;display:none;align-items:center;justify-content:center;border-radius:50%;font-size:.9rem;font-weight:950;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.18);transform:scale(.55);opacity:0}
     .subtotal-check.visible{display:flex;animation:subtotalCheckPop .38s cubic-bezier(.2,.85,.25,1.25) forwards}
+    .opportunity-flag{position:absolute;right:10px;bottom:10px;z-index:3;width:28px;height:28px;display:none;align-items:center;justify-content:center;border:1px solid #d1aa36;border-radius:50%;background:#332b12;color:#ffd85a;font-size:1.05rem;font-weight:950;line-height:1;cursor:help;box-shadow:0 4px 13px rgba(0,0,0,.22);text-shadow:0 1px 5px rgba(255,213,76,.18);transform:scale(.65);opacity:0}
+    .opportunity-flag.visible{display:flex;animation:opportunityFlagPop .34s cubic-bezier(.2,.85,.25,1.25) forwards}
+    .opportunity-flag::after{content:attr(data-tooltip);position:absolute;right:0;bottom:35px;min-width:max-content;padding:6px 8px;border:1px solid #4b4330;border-radius:7px;background:#17171b;color:#f0dfa2;font-size:.61rem;font-weight:800;letter-spacing:0;white-space:nowrap;text-align:left;line-height:1.35;box-shadow:0 5px 16px rgba(0,0,0,.28);opacity:0;pointer-events:none;transform:translateY(3px);transition:.14s ease}
+    .opportunity-flag:hover::after{opacity:1;transform:translateY(0)}
+    @keyframes opportunityFlagPop{0%{opacity:0;transform:scale(.65) rotate(-8deg)}75%{opacity:1;transform:scale(1.1) rotate(2deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
     .subtotal-check.pass{border:1px solid #8ad4a0;background:#dcf7e4;color:#257241}
     .subtotal-check.warn{border:1px solid #e6cc78;background:#fff4bf;color:#8a6b0b}
     .subtotal-check.missing{border:1px solid #e88c8c;background:#ffe2e2;color:#a63838}
@@ -1001,6 +1006,121 @@
       }
     }
 
+    // Clean top-header mask calibrated from the supplied Event Recap sample.
+    // We normalize every recap to 600px wide and inspect only the area above
+    // the divider under "Event Recap". The spans below are the permanent printed
+    // ink (expanded slightly for scanner drift), so only NEW ink is considered.
+    const opportunityHeaderTemplateSpans=[[],[],[],[],[],[],[],[[15,23],[574,583]],[[14,24],[574,584]],[[14,24],[574,584]],[[13,24],[574,585]],[[13,24],[574,585]],[[13,24],[574,585]],[[13,24],[574,585]],[[13,24],[574,585]],[[13,24],[574,585]],[[13,24],[574,585]],[[13,23],[575,585]],[[13,22],[575,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[216,234],[291,308],[576,585]],[[13,22],[216,235],[291,310],[576,585]],[[13,22],[216,235],[272,285],[291,312],[576,585]],[[13,22],[216,235],[272,285],[291,312],[576,585]],[[13,22],[216,235],[272,285],[291,313],[576,585]],[[13,22],[216,235],[272,285],[291,313],[576,585]],[[13,22],[216,235],[272,285],[291,313],[576,585]],[[13,22],[216,287],[291,370],[576,585]],[[13,22],[216,287],[291,371],[576,585]],[[13,22],[216,287],[291,371],[576,585]],[[13,22],[216,287],[291,371],[576,585]],[[13,22],[216,287],[291,371],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,285],[291,372],[576,585]],[[13,22],[216,285],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,371],[576,585]],[[13,22],[216,288],[291,371],[576,585]],[[13,22],[216,288],[291,371],[576,585]],[[13,22],[216,288],[291,370],[576,585]],[[13,22],[171,186],[188,543],[576,585]],[[13,22],[55,543],[576,585]],[[13,22],[55,543],[576,585]],[[13,22],[55,543],[576,585]],[[13,22],[55,543],[576,585]],[[13,22],[55,543],[576,585]]];
+
+    function opportunityTemplateCovers(x,y){
+      const spans=opportunityHeaderTemplateSpans[y];
+      if(!spans)return false;
+
+      for(const span of spans){
+        if(x>=span[0]&&x<=span[1])return true;
+      }
+
+      return false;
+    }
+
+    async function detectOpportunityMark(pdf,pageNumber){
+      const page=await pdf.getPage(pageNumber);
+      const base=page.getViewport({scale:1});
+      const width=600;
+      const scale=width/base.width;
+      const viewport=page.getViewport({scale});
+      const canvas=document.createElement("canvas");
+      const ctx=canvas.getContext("2d",{willReadFrequently:true});
+
+      canvas.width=width;
+      canvas.height=Math.max(1,Math.round(viewport.height));
+
+      await page.render({
+        canvasContext:ctx,
+        viewport
+      }).promise;
+
+      const roiHeight=Math.min(72,canvas.height);
+      const pixels=ctx.getImageData(0,0,width,roiHeight).data;
+      const extra=new Uint8Array(width*roiHeight);
+      let totalExtra=0;
+
+      for(let y=0;y<roiHeight;y++){
+        for(let x=30;x<570;x++){
+          const i=(y*width+x)*4;
+          const gray=(pixels[i]+pixels[i+1]+pixels[i+2])/3;
+
+          // Only strong dark ink counts. The clean-template mask already covers
+          // the printed title, border and divider, including a scanner-drift pad.
+          if(gray>=160||opportunityTemplateCovers(x,y))continue;
+
+          extra[y*width+x]=1;
+          totalExtra++;
+        }
+      }
+
+      if(totalExtra<12)return false;
+
+      const visited=new Uint8Array(extra.length);
+      let largestValid=0;
+      let validInk=0;
+
+      for(let seed=0;seed<extra.length;seed++){
+        if(!extra[seed]||visited[seed])continue;
+
+        const stack=[seed];
+        visited[seed]=1;
+        let area=0;
+        let minX=width,maxX=0,minY=roiHeight,maxY=0;
+
+        while(stack.length){
+          const pos=stack.pop();
+          const y=Math.floor(pos/width);
+          const x=pos-y*width;
+          area++;
+          minX=Math.min(minX,x);maxX=Math.max(maxX,x);
+          minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+
+          for(let dy=-1;dy<=1;dy++){
+            for(let dx=-1;dx<=1;dx++){
+              if(dx===0&&dy===0)continue;
+              const nx=x+dx,ny=y+dy;
+              if(nx<30||nx>=570||ny<0||ny>=roiHeight)continue;
+              const ni=ny*width+nx;
+              if(!extra[ni]||visited[ni])continue;
+              visited[ni]=1;
+              stack.push(ni);
+            }
+          }
+        }
+
+        const componentWidth=maxX-minX+1;
+        const componentHeight=maxY-minY+1;
+        const looksLikeInk=
+          area>=12 &&
+          componentWidth>=4 &&
+          componentHeight>=3;
+
+        if(looksLikeInk){
+          validInk+=area;
+          largestValid=Math.max(largestValid,area);
+        }
+      }
+
+      // Sensitive enough for a small handwritten mark/check, while ignoring
+      // isolated scanner specks. The supplied star example clears this by a lot.
+      return largestValid>=18||validInk>=32;
+    }
+
+    function syncOpportunityFlag(group){
+      const flag=group?.ui?.opportunityFlag;
+      if(!flag)return;
+
+      const detected=Boolean(group.opportunityDetected);
+      flag.classList.toggle("visible",detected);
+      flag.setAttribute("aria-hidden",detected?"false":"true");
+    }
+
     async function processRecapPdf(file){
       if(!file||!currentGroups.length)return;
 
@@ -1022,30 +1142,52 @@
         currentRecapPdfJs=recapPdf;
 
         const linked=Math.min(recapPdf.numPages,currentGroups.length);
+        let opportunities=0;
 
-        currentGroups.forEach((group,index)=>{
+        recapUploadButton.textContent="Scanning Recaps…";
+
+        for(let index=0;index<currentGroups.length;index++){
+          const group=currentGroups[index];
+
           if(index<recapPdf.numPages){
             group.recapPdf=recapPdf;
             group.recapPageNumber=index+1;
+
+            try{
+              group.opportunityDetected=await detectOpportunityMark(
+                recapPdf,
+                index+1
+              );
+            }catch(error){
+              console.warn("Opportunity scan failed for recap page "+(index+1),error);
+              group.opportunityDetected=false;
+            }
           }else{
             group.recapPdf=null;
             group.recapPageNumber=null;
+            group.opportunityDetected=false;
           }
-        });
+
+          if(group.opportunityDetected)opportunities++;
+          syncOpportunityFlag(group);
+        }
 
         recapUploadButton.title=
           linked+" of "+currentGroups.length+
-          " events linked to recap pages by order";
+          " events linked to recap pages by order · "+
+          opportunities+" opportunities detected";
 
         if(recapPdf.numPages===currentGroups.length){
           await terminalMessage(
-            "Linked "+linked+" recap pages to "+currentGroups.length+" events by order.",
+            "Linked "+linked+" recap pages to "+currentGroups.length+
+            " events by order · "+opportunities+" opportunities detected.",
             "success"
           );
         }else{
           await terminalMessage(
             "Recap packet has "+recapPdf.numPages+" pages for "+currentGroups.length+
-            " events; linked the first "+linked+" by order.",
+            " events; linked the first "+linked+" by order · "+
+            opportunities+" opportunities detected.",
             "muted"
           );
         }
@@ -2539,6 +2681,14 @@
       subtotalCheck.setAttribute("aria-hidden","true");
       preview.appendChild(subtotalCheck);
 
+      const opportunityFlag=document.createElement("div");
+      opportunityFlag.className="opportunity-flag";
+      opportunityFlag.textContent="⚑";
+      opportunityFlag.dataset.tooltip="Opportunities detected";
+      opportunityFlag.setAttribute("aria-label","Opportunities detected");
+      opportunityFlag.setAttribute("aria-hidden","true");
+      preview.appendChild(opportunityFlag);
+
       const meta=document.createElement("div");
       meta.className="event-meta";
       [["Date",p.date],["Time",p.time],["Guests",p.guests]].forEach(pair=>{
@@ -2724,11 +2874,14 @@
       group.ui={
         contracted,
         subtotalCheck,
+        opportunityFlag,
         pasteZone,
         replaceButton,
         scanLog,
         arResults
       };
+
+      syncOpportunityFlag(group);
 
       if(p.arProcessed&&p.arComparison){
         renderAdditionalRevenue(arResults,p.arComparison);
