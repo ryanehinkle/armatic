@@ -1050,34 +1050,58 @@
 
       const roiHeight=Math.min(72,canvas.height);
       const pixels=ctx.getImageData(0,0,width,roiHeight).data;
-      const extra=new Uint8Array(width*roiHeight);
-      let totalExtra=0;
+
+      // First pass: only keep genuinely dark pixels that are not part of the
+      // known printed recap template. A stricter darkness cutoff keeps faint
+      // scanner haze / dust from ever entering the detector.
+      const candidate=new Uint8Array(width*roiHeight);
 
       for(let y=0;y<roiHeight;y++){
         for(let x=30;x<570;x++){
           const i=(y*width+x)*4;
           const gray=(pixels[i]+pixels[i+1]+pixels[i+2])/3;
 
-          // Only strong dark ink counts. The clean-template mask already covers
-          // the printed title, border and divider, including a scanner-drift pad.
-          if(gray>=160||opportunityTemplateCovers(x,y))continue;
-
-          extra[y*width+x]=1;
-          totalExtra++;
+          if(gray>=135||opportunityTemplateCovers(x,y))continue;
+          candidate[y*width+x]=1;
         }
       }
 
-      if(totalExtra<12)return false;
+      // Second pass: remove salt-and-pepper scan noise. A real pen stroke has
+      // neighboring dark pixels; isolated specks usually do not.
+      const filtered=new Uint8Array(candidate.length);
 
-      const visited=new Uint8Array(extra.length);
+      for(let y=1;y<roiHeight-1;y++){
+        for(let x=31;x<569;x++){
+          const index=y*width+x;
+          if(!candidate[index])continue;
+
+          let neighbors=0;
+
+          for(let dy=-1;dy<=1;dy++){
+            for(let dx=-1;dx<=1;dx++){
+              if(dx===0&&dy===0)continue;
+              if(candidate[(y+dy)*width+(x+dx)])neighbors++;
+            }
+          }
+
+          if(neighbors>=2){
+            filtered[index]=1;
+          }
+        }
+      }
+
+      const visited=new Uint8Array(filtered.length);
+      let strongComponents=0;
+      let mediumComponents=0;
+      let totalValidInk=0;
       let largestValid=0;
-      let validInk=0;
 
-      for(let seed=0;seed<extra.length;seed++){
-        if(!extra[seed]||visited[seed])continue;
+      for(let seed=0;seed<filtered.length;seed++){
+        if(!filtered[seed]||visited[seed])continue;
 
         const stack=[seed];
         visited[seed]=1;
+
         let area=0;
         let minX=width,maxX=0,minY=roiHeight,maxY=0;
 
@@ -1085,17 +1109,25 @@
           const pos=stack.pop();
           const y=Math.floor(pos/width);
           const x=pos-y*width;
+
           area++;
-          minX=Math.min(minX,x);maxX=Math.max(maxX,x);
-          minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+          minX=Math.min(minX,x);
+          maxX=Math.max(maxX,x);
+          minY=Math.min(minY,y);
+          maxY=Math.max(maxY,y);
 
           for(let dy=-1;dy<=1;dy++){
             for(let dx=-1;dx<=1;dx++){
               if(dx===0&&dy===0)continue;
-              const nx=x+dx,ny=y+dy;
+
+              const nx=x+dx;
+              const ny=y+dy;
+
               if(nx<30||nx>=570||ny<0||ny>=roiHeight)continue;
+
               const ni=ny*width+nx;
-              if(!extra[ni]||visited[ni])continue;
+              if(!filtered[ni]||visited[ni])continue;
+
               visited[ni]=1;
               stack.push(ni);
             }
@@ -1104,20 +1136,46 @@
 
         const componentWidth=maxX-minX+1;
         const componentHeight=maxY-minY+1;
-        const looksLikeInk=
-          area>=12 &&
-          componentWidth>=4 &&
-          componentHeight>=3;
+        const boxArea=componentWidth*componentHeight;
+        const density=boxArea>0?area/boxArea:0;
+        const veryLongThin=
+          (componentWidth>=55&&componentHeight<=3) ||
+          (componentHeight>=45&&componentWidth<=3);
 
-        if(looksLikeInk){
-          validInk+=area;
-          largestValid=Math.max(largestValid,area);
+        // Reject scanner crumbs, hairline streaks, and very sparse artifacts.
+        if(area<10)continue;
+        if(componentWidth<4||componentHeight<3)continue;
+        if(density<0.06)continue;
+        if(veryLongThin)continue;
+
+        totalValidInk+=area;
+        largestValid=Math.max(largestValid,area);
+
+        if(
+          area>=34 &&
+          componentWidth>=8 &&
+          componentHeight>=6
+        ){
+          strongComponents++;
+        }else if(
+          area>=18 &&
+          componentWidth>=5 &&
+          componentHeight>=4
+        ){
+          mediumComponents++;
         }
       }
 
-      // Sensitive enough for a small handwritten mark/check, while ignoring
-      // isolated scanner specks. The supplied star example clears this by a lot.
-      return largestValid>=18||validInk>=32;
+      // A flag now requires a real cluster of handwriting instead of merely
+      // "some extra dark pixels": one strong mark, multiple medium marks, or a
+      // substantial amount of connected ink. This keeps genuine stars/checks/
+      // writing detectable while being much harder for scan noise to trigger.
+      return(
+        strongComponents>=1 ||
+        mediumComponents>=2 ||
+        totalValidInk>=60 ||
+        largestValid>=42
+      );
     }
 
     function syncOpportunityFlag(group){
