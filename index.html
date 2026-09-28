@@ -9,7 +9,7 @@
     :root{color-scheme:dark;--bg:#080809;--panel:#18181b;--panel2:#1d1d21;--border:#34343b;--soft:#29292f;--text:#f5f5f7;--muted:#9696a0;--blue:#5185bd;--green:#65b47e}
     *{box-sizing:border-box;margin:0;padding:0}
     body{min-height:100vh;font-family:Arial,Helvetica,sans-serif;background:radial-gradient(circle at 50% 24%,#17171a 0%,#0d0d0f 40%,#080809 74%);color:var(--text)}
-    button,input{font:inherit}button{color:inherit}#pdfInput,#toastCsvInput{display:none}
+    button,input{font:inherit}button{color:inherit}#pdfInput,#toastCsvInput,#recapPdfInput{display:none}
     .landing{position:relative;min-height:100vh;display:grid;place-items:center;overflow:hidden;padding:24px}
     .floating-topgolf-logo{position:fixed;top:0;left:0;z-index:1;width:clamp(82px,7vw,112px);height:auto;max-height:58px;object-fit:contain;pointer-events:none;user-select:none;will-change:transform;filter:url(#topgolfLogoColor) drop-shadow(0 8px 18px rgba(0,0,0,.32))}
     .landing-card{position:relative;z-index:2;width:min(92vw,520px);padding:52px 42px 42px;text-align:center;background:var(--panel);border:1px solid #3a3a40;border-radius:14px;box-shadow:0 28px 80px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.03)}
@@ -71,6 +71,9 @@
     .portfolio-sales-date{margin-top:7px;color:#9a9aa4;font-size:.76rem;font-weight:750;letter-spacing:.01em}
     .events-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-width:0;justify-self:end}
     .event-count{color:#8fbe9d;font-size:.8rem;font-weight:800;white-space:nowrap}
+    .recap-upload-button{border:1px solid #4d6680;border-radius:9px;padding:8px 13px;background:#1c2732;color:#a9c8e8;font-size:.75rem;font-weight:850;cursor:pointer;transition:.15s ease;white-space:nowrap}
+    .recap-upload-button:hover:not(:disabled){background:#223140;border-color:#6687a8;color:#c3dcf4}
+    .recap-upload-button:disabled{opacity:.4;cursor:default}
     .toast-upload-button{border:1px solid #9c744d;border-radius:9px;padding:8px 13px;background:#2b241d;color:#e7bc91;font-size:.75rem;font-weight:850;cursor:pointer;transition:.15s ease;white-space:nowrap}
     .toast-upload-button:hover:not(:disabled){background:#382b20;border-color:#ba8958;color:#f0cba8}
     .toast-upload-button:disabled{opacity:.4;cursor:default}
@@ -208,7 +211,7 @@
     .empty-events{display:none;padding:28px;border:1px dashed #34343b;border-radius:12px;color:#85858f;text-align:center}
     .pdf-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(3,3,5,.76);backdrop-filter:blur(8px)}
     .pdf-modal.open{display:flex}
-    .modal-window{position:relative;max-width:94vw;max-height:92vh;display:flex;flex-direction:column;border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
+    .modal-window{position:relative;width:max-content;max-width:98vw;max-height:94vh;display:flex;flex-direction:column;border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
     .modal-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 14px;border-bottom:1px solid #303036;background:#1b1b1f}
     .modal-event-name{max-width:min(62vw,680px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e9e9ed;font-size:.82rem;font-weight:800}
     .modal-controls{display:flex;align-items:center;gap:8px}
@@ -216,9 +219,14 @@
     .modal-button{width:34px;height:34px;border:1px solid #3a3a42;border-radius:8px;background:#242429;color:#dedee4;font-size:1.1rem;cursor:pointer}
     .modal-button:disabled{opacity:.32;cursor:default}
     .modal-close{font-size:1.2rem}
-    .modal-body{position:relative;display:grid;place-items:center;min-width:320px;min-height:360px;padding:14px;background:#111114}
-    #modalCanvas{display:block;max-width:88vw;max-height:80vh;background:#fff;box-shadow:0 5px 24px rgba(0,0,0,.36)}
+    .modal-body{position:relative;display:flex;align-items:center;justify-content:center;gap:14px;min-width:320px;min-height:360px;padding:14px;background:#111114;overflow:auto}
+    .modal-pane{position:relative;display:grid;place-items:center;min-width:0;max-width:88vw}
+    .modal-body.has-recap .modal-pane{width:min(44vw,700px);max-width:44vw}
+    .modal-pane[hidden]{display:none}
+    .modal-pane-label{position:absolute;z-index:2;top:8px;left:8px;padding:4px 7px;border:1px solid rgba(0,0,0,.18);border-radius:6px;background:rgba(22,22,25,.82);color:#d7d7dc;font-size:.62rem;font-weight:900;letter-spacing:.055em;text-transform:uppercase;pointer-events:none;backdrop-filter:blur(5px)}
+    #modalCanvas,#recapCanvas{display:block;max-width:100%;max-height:78vh;background:#fff;box-shadow:0 5px 24px rgba(0,0,0,.36)}
     .modal-loading{position:absolute;color:#81818b;font-size:.8rem}
+    @media(max-width:900px){.modal-body.has-recap{flex-direction:column}.modal-body.has-recap .modal-pane{width:min(88vw,700px);max-width:88vw}#modalCanvas,#recapCanvas{max-height:72vh}}
     @media(max-width:1100px){.events-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.add-event-slot{grid-column:auto}.add-event-slot:nth-child(2n+1){grid-column:1/-1}}
     @media(max-width:900px){.events-head{grid-template-columns:1fr auto;gap:14px}.portfolio-sales{grid-column:1/-1;grid-row:1;min-width:0}.events-title-group{grid-column:1;grid-row:2}.events-actions{grid-column:2;grid-row:2}}
     @media(max-width:700px){.events-grid{grid-template-columns:1fr}.add-event-slot{grid-column:1}.event-preview{height:220px}.events-head{grid-template-columns:1fr;align-items:center}.portfolio-sales,.events-title-group,.events-actions{grid-column:1;justify-self:center}.portfolio-sales{grid-row:1}.events-title-group{grid-row:2;width:100%;justify-content:center}.events-actions{grid-row:3;width:100%;justify-content:center}.events-progress{min-width:0}.events-progress-track{width:90px}}
@@ -237,6 +245,7 @@
 
   <input id="pdfInput" type="file" accept="application/pdf,.pdf">
   <input id="toastCsvInput" type="file" accept=".csv,text/csv">
+  <input id="recapPdfInput" type="file" accept="application/pdf,.pdf">
 
   <main id="landing" class="landing">
     <img
@@ -309,6 +318,7 @@
       </a>
       <div class="events-actions">
         <div id="eventCount" class="event-count">0 events</div>
+        <button id="recapUploadButton" class="recap-upload-button" type="button" disabled>Upload Recaps</button>
         <button id="toastUploadButton" class="toast-upload-button" type="button" disabled>Upload Toast</button>
         <button id="exportButton" class="export-button" type="button" disabled>Export</button>
       </div>
@@ -340,8 +350,16 @@
         </div>
       </div>
       <div id="modalBody" class="modal-body">
-        <div id="modalLoading" class="modal-loading">Loading page…</div>
-        <canvas id="modalCanvas"></canvas>
+        <div id="beoPane" class="modal-pane beo-pane">
+          <div class="modal-pane-label">BEO</div>
+          <div id="modalLoading" class="modal-loading">Loading page…</div>
+          <canvas id="modalCanvas"></canvas>
+        </div>
+        <div id="recapPane" class="modal-pane recap-pane" hidden>
+          <div class="modal-pane-label">Recap</div>
+          <div id="recapLoading" class="modal-loading">Loading recap…</div>
+          <canvas id="recapCanvas"></canvas>
+        </div>
       </div>
     </section>
   </div>
@@ -355,7 +373,7 @@
 
     const {PDFDocument,rgb,StandardFonts}=window.PDFLib;
     const $=(id)=>document.getElementById(id);
-    const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),modalEventName=$("modalEventName"),prevPage=$("prevPage"),nextPage=$("nextPage"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading");
+    const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),recapPdfInput=$("recapPdfInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),recapUploadButton=$("recapUploadButton"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),modalEventName=$("modalEventName"),modalBody=$("modalBody"),recapPane=$("recapPane"),prevPage=$("prevPage"),nextPage=$("nextPage"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading"),recapCanvas=$("recapCanvas"),recapLoading=$("recapLoading");
     const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
     const floatingTopgolfLogo=$("floatingTopgolfLogo");
     const landingCard=document.querySelector(".landing-card");
@@ -363,9 +381,13 @@
 
     let activePreviewPdf=null;
     let activePreviewPage=1;
+    let activePreviewRecapPdf=null;
+    let activePreviewRecapPage=null;
     let modalRenderTask=null;
+    let recapRenderTask=null;
     let currentSourceBytes=null;
     let currentSourcePdfJs=null;
+    let currentRecapPdfJs=null;
     let currentGroups=[];
     let currentToastByEvent=new Map();
     let currentUploadName="Automatic-AR.pdf";
@@ -792,6 +814,12 @@
       const toastReportUrl=getToastReportUrl();
       if(toastReportUrl)window.open(toastReportUrl,"_blank","noopener,noreferrer");
     });
+    recapUploadButton.addEventListener("click",()=>recapPdfInput.click());
+    recapPdfInput.addEventListener("change",()=>{
+      const file=recapPdfInput.files&&recapPdfInput.files[0];
+      if(file)processRecapPdf(file);
+      recapPdfInput.value="";
+    });
     toastUploadButton.addEventListener("click",()=>toastCsvInput.click());
     toastCsvInput.addEventListener("change",()=>{
       const file=toastCsvInput.files&&toastCsvInput.files[0];
@@ -824,12 +852,16 @@
       scanProgressBar.style.width="0%";
       currentSourceBytes=null;
       currentSourcePdfJs=null;
+      currentRecapPdfJs=null;
       currentGroups=[];
       currentToastByEvent=new Map();
       enteredEvents=new Set();
       updateEnteredProgress();
       currentUploadName=file.name;
       exportButton.disabled=true;
+      recapUploadButton.disabled=true;
+      recapUploadButton.title="";
+      recapUploadButton.textContent="Upload Recaps";
       toastUploadButton.disabled=true;
       toastUploadButton.title="";
       eventsProgressBar.style.width="0%";
@@ -958,6 +990,7 @@
 
         status.innerHTML='<span class="status-dot"></span> Complete';
         scanProgressBar.style.width="100%";
+        recapUploadButton.disabled=false;
         toastUploadButton.disabled=false;
         refreshAddEventSlot();
         await terminalMessage("All events separated and analyzed.","success");
@@ -965,6 +998,63 @@
         console.error(err);
         status.innerHTML='<span class="status-dot"></span> Error';
         await terminalMessage("Could not finish reading this PDF.","muted");
+      }
+    }
+
+    async function processRecapPdf(file){
+      if(!file||!currentGroups.length)return;
+
+      if(
+        file.type!=="application/pdf" &&
+        !file.name.toLowerCase().endsWith(".pdf")
+      ){
+        alert("Please upload the recap packet as a PDF.");
+        return;
+      }
+
+      const oldText=recapUploadButton.textContent;
+      recapUploadButton.disabled=true;
+      recapUploadButton.textContent="Loading Recaps…";
+
+      try{
+        const bytes=new Uint8Array(await file.arrayBuffer());
+        const recapPdf=await pdfjsLib.getDocument({data:bytes.slice()}).promise;
+        currentRecapPdfJs=recapPdf;
+
+        const linked=Math.min(recapPdf.numPages,currentGroups.length);
+
+        currentGroups.forEach((group,index)=>{
+          if(index<recapPdf.numPages){
+            group.recapPdf=recapPdf;
+            group.recapPageNumber=index+1;
+          }else{
+            group.recapPdf=null;
+            group.recapPageNumber=null;
+          }
+        });
+
+        recapUploadButton.title=
+          linked+" of "+currentGroups.length+
+          " events linked to recap pages by order";
+
+        if(recapPdf.numPages===currentGroups.length){
+          await terminalMessage(
+            "Linked "+linked+" recap pages to "+currentGroups.length+" events by order.",
+            "success"
+          );
+        }else{
+          await terminalMessage(
+            "Recap packet has "+recapPdf.numPages+" pages for "+currentGroups.length+
+            " events; linked the first "+linked+" by order.",
+            "muted"
+          );
+        }
+      }catch(error){
+        console.error("Recap PDF upload failed:",error);
+        alert("Could not read that recap PDF. Please try again.");
+      }finally{
+        recapUploadButton.disabled=false;
+        recapUploadButton.textContent=oldText||"Upload Recaps";
       }
     }
 
@@ -2623,7 +2713,13 @@
 
       additional.append(arHeader,scanLog,arResults);
 
-      preview.addEventListener("click",()=>openPreview(group.pdf,p.fullTitle,p.opportunityId));
+      preview.addEventListener("click",()=>openPreview(
+        group.pdf,
+        p.fullTitle,
+        p.opportunityId,
+        group.recapPdf||null,
+        group.recapPageNumber||null
+      ));
 
       group.ui={
         contracted,
@@ -4485,9 +4581,17 @@
       await page.render({canvasContext:ctx,viewport,transform:output!==1?[output,0,0,output,0,0]:null}).promise;
     }
 
-    async function openPreview(pdf,name,opportunityId=null){
+    async function openPreview(
+      pdf,
+      name,
+      opportunityId=null,
+      recapPdf=null,
+      recapPage=null
+    ){
       activePreviewPdf=pdf;
       activePreviewPage=1;
+      activePreviewRecapPdf=recapPdf;
+      activePreviewRecapPage=Number.isInteger(recapPage)?recapPage:null;
       modalEventName.replaceChildren();
 
       const opportunityHref=opportunityUrl(opportunityId);
@@ -4513,6 +4617,17 @@
 
     async function renderModalPage(){
       if(!activePreviewPdf)return;
+
+      const hasRecap=Boolean(
+        activePreviewRecapPdf &&
+        activePreviewRecapPage &&
+        activePreviewRecapPage<=activePreviewRecapPdf.numPages
+      );
+      const sideBySide=hasRecap&&innerWidth>900;
+
+      modalBody.classList.toggle("has-recap",hasRecap);
+      recapPane.hidden=!hasRecap;
+
       prevPage.disabled=activePreviewPage<=1;
       nextPage.disabled=activePreviewPage>=activePreviewPdf.numPages;
       pageCounter.textContent=activePreviewPage+" of "+activePreviewPdf.numPages;
@@ -4521,14 +4636,28 @@
         try{modalRenderTask.cancel()}catch(_){}
         modalRenderTask=null;
       }
+      if(recapRenderTask){
+        try{recapRenderTask.cancel()}catch(_){}
+        recapRenderTask=null;
+      }
 
       modalCanvas.style.display="none";
       modalLoading.style.display="block";
 
+      if(hasRecap){
+        recapCanvas.style.display="none";
+        recapLoading.style.display="block";
+      }else{
+        recapCanvas.style.display="none";
+        recapLoading.style.display="none";
+      }
+
       try{
         const page=await activePreviewPdf.getPage(activePreviewPage);
         const base=page.getViewport({scale:1});
-        const scale=Math.min((innerWidth*.82)/base.width,(innerHeight*.75)/base.height,1.7);
+        const widthLimit=sideBySide?innerWidth*.42:innerWidth*.82;
+        const heightLimit=innerHeight*.73;
+        const scale=Math.min(widthLimit/base.width,heightLimit/base.height,1.7);
         const viewport=page.getViewport({scale});
         const output=Math.min(devicePixelRatio||1,2);
         const ctx=modalCanvas.getContext("2d");
@@ -4538,11 +4667,46 @@
         modalCanvas.style.width=Math.floor(viewport.width)+"px";
         modalCanvas.style.height=Math.floor(viewport.height)+"px";
 
-        modalRenderTask=page.render({canvasContext:ctx,viewport,transform:output!==1?[output,0,0,output,0,0]:null});
+        modalRenderTask=page.render({
+          canvasContext:ctx,
+          viewport,
+          transform:output!==1?[output,0,0,output,0,0]:null
+        });
+
         await modalRenderTask.promise;
+        modalRenderTask=null;
         modalLoading.style.display="none";
         modalCanvas.style.display="block";
-        modalRenderTask=null;
+
+        if(hasRecap){
+          const recapPage=await activePreviewRecapPdf.getPage(activePreviewRecapPage);
+          const recapBase=recapPage.getViewport({scale:1});
+          const recapWidthLimit=sideBySide?innerWidth*.42:innerWidth*.82;
+          const recapScale=Math.min(
+            recapWidthLimit/recapBase.width,
+            heightLimit/recapBase.height,
+            1.7
+          );
+          const recapViewport=recapPage.getViewport({scale:recapScale});
+          const recapOutput=Math.min(devicePixelRatio||1,2);
+          const recapCtx=recapCanvas.getContext("2d");
+
+          recapCanvas.width=Math.floor(recapViewport.width*recapOutput);
+          recapCanvas.height=Math.floor(recapViewport.height*recapOutput);
+          recapCanvas.style.width=Math.floor(recapViewport.width)+"px";
+          recapCanvas.style.height=Math.floor(recapViewport.height)+"px";
+
+          recapRenderTask=recapPage.render({
+            canvasContext:recapCtx,
+            viewport:recapViewport,
+            transform:recapOutput!==1?[recapOutput,0,0,recapOutput,0,0]:null
+          });
+
+          await recapRenderTask.promise;
+          recapRenderTask=null;
+          recapLoading.style.display="none";
+          recapCanvas.style.display="block";
+        }
       }catch(err){
         if(err&&err.name!=="RenderingCancelledException")console.error(err);
       }
@@ -4554,7 +4718,12 @@
       document.body.style.overflow="";
       activePreviewPdf=null;
       activePreviewPage=1;
+      activePreviewRecapPdf=null;
+      activePreviewRecapPage=null;
+      modalBody.classList.remove("has-recap");
+      recapPane.hidden=true;
       if(modalRenderTask){try{modalRenderTask.cancel()}catch(_){}modalRenderTask=null}
+      if(recapRenderTask){try{recapRenderTask.cancel()}catch(_){}recapRenderTask=null}
     }
 
     prevPage.addEventListener("click",()=>{if(activePreviewPdf&&activePreviewPage>1){activePreviewPage--;renderModalPage()}});
