@@ -1159,9 +1159,10 @@
       if(!file)return;
 
       const loadingFromLanding=landing.style.display!=="none";
-      const oldLoadText=loadSessionButton.textContent;
-      loadSessionButton.disabled=true;
-      loadSessionButton.textContent="Loading…";
+      const loadTriggerButton=loadingFromLanding?uploadButton:newFileButton;
+      const oldLoadText=loadTriggerButton.textContent;
+      loadTriggerButton.disabled=true;
+      loadTriggerButton.textContent="Loading…";
 
       try{
         const raw=await file.text();
@@ -1331,8 +1332,8 @@
           );
         }
       }finally{
-        loadSessionButton.disabled=false;
-        loadSessionButton.textContent=oldLoadText;
+        loadTriggerButton.disabled=false;
+        loadTriggerButton.textContent=oldLoadText;
       }
     }
 
