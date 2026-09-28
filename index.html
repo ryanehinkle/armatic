@@ -1481,6 +1481,7 @@
         const isMinimum=
           Boolean(item.isFlexMinimum) ||
           isFlexMinimumText(item.line) ||
+          (tags.includes("Flex")&&isFlexMinimumContextText(item.line)) ||
           /\bminimum\b/i.test(item.line);
 
         const rowTotal=item.printedTotal!==null
@@ -1660,9 +1661,14 @@
               revenueSection&&
               (
                 isFlexMinimumText(line) ||
-                (tags.includes("Flex")&&/\bminimum\b/i.test(line))
+                (tags.includes("Flex")&&/\bminimum\b/i.test(line)) ||
+                (tags.includes("Flex")&&isFlexMinimumContextText(line))
               )
             ){
+              // On some BEOs the product name wraps so the priced row ends with
+              // "Food & Beverage" and the word "Minimum" is extracted on the
+              // following line. The priced Flex F&B row itself is still the
+              // contracted minimum (for example the $150 package).
               item.isFlexMinimum=true;
             }
 
