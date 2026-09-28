@@ -1048,7 +1048,10 @@
         viewport
       }).promise;
 
-      const roiHeight=Math.min(72,canvas.height);
+      // Only inspect the blank top-margin area above the printed "Event Recap"
+      // heading. The earlier 72px band reached far enough down to let normal
+      // form/title variation look like handwriting on noisy scans.
+      const roiHeight=Math.min(58,canvas.height);
       const pixels=ctx.getImageData(0,0,width,roiHeight).data;
 
       // First pass: only keep genuinely dark pixels that are not part of the
@@ -1057,11 +1060,11 @@
       const candidate=new Uint8Array(width*roiHeight);
 
       for(let y=0;y<roiHeight;y++){
-        for(let x=30;x<570;x++){
+        for(let x=45;x<555;x++){
           const i=(y*width+x)*4;
           const gray=(pixels[i]+pixels[i+1]+pixels[i+2])/3;
 
-          if(gray>=135||opportunityTemplateCovers(x,y))continue;
+          if(gray>=125||opportunityTemplateCovers(x,y))continue;
           candidate[y*width+x]=1;
         }
       }
@@ -1071,7 +1074,7 @@
       const filtered=new Uint8Array(candidate.length);
 
       for(let y=1;y<roiHeight-1;y++){
-        for(let x=31;x<569;x++){
+        for(let x=46;x<554;x++){
           const index=y*width+x;
           if(!candidate[index])continue;
 
@@ -1123,7 +1126,7 @@
               const nx=x+dx;
               const ny=y+dy;
 
-              if(nx<30||nx>=570||ny<0||ny>=roiHeight)continue;
+              if(nx<45||nx>=555||ny<0||ny>=roiHeight)continue;
 
               const ni=ny*width+nx;
               if(!filtered[ni]||visited[ni])continue;
@@ -1152,15 +1155,15 @@
         largestValid=Math.max(largestValid,area);
 
         if(
-          area>=34 &&
-          componentWidth>=8 &&
-          componentHeight>=6
+          area>=48 &&
+          componentWidth>=12 &&
+          componentHeight>=8
         ){
           strongComponents++;
         }else if(
-          area>=18 &&
-          componentWidth>=5 &&
-          componentHeight>=4
+          area>=30 &&
+          componentWidth>=8 &&
+          componentHeight>=6
         ){
           mediumComponents++;
         }
@@ -1173,8 +1176,8 @@
       return(
         strongComponents>=1 ||
         mediumComponents>=2 ||
-        totalValidInk>=60 ||
-        largestValid>=42
+        totalValidInk>=105 ||
+        largestValid>=68
       );
     }
 
