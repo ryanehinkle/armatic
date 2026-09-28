@@ -1417,23 +1417,40 @@
           continue;
         }
 
-        if(section!=="Beverages"&&section!=="Food")continue;
+        const explicitMinimum=
+          isFlexMinimumText(line) ||
+          /\bfood\s*(?:&|and)\s*beverage\s+minimum\b/i.test(line);
 
-        const currentHasMinimum=/\bminimum\b/i.test(line);
-        const next=clean(lines[i+1]||"");
-        const next2=clean(lines[i+2]||"");
+        // Most BEOs keep the Flex minimum inside Food/Beverages, but PDF text
+        // extraction sometimes glues the section heading/header onto another line.
+        // An explicit F&B/Flex minimum label is therefore allowed to recover the
+        // amount even when the section marker was not parsed cleanly.
+        if(
+          !explicitMinimum &&
+          !((section==="Beverages"||section==="Food")&&/\bminimum\b/i.test(line))
+        ){
+          continue;
+        }
 
         let candidate=line;
 
-        if(currentHasMinimum){
-          if(!/USD\s*-?[\d,.]+/i.test(candidate)){
-            candidate=clean(candidate+" "+next);
-          }
-          if(!/USD\s*-?[\d,.]+/i.test(candidate)){
-            candidate=clean(candidate+" "+next2);
-          }
-        }else{
-          continue;
+        // The label and quantity/unit/total can be split across extracted lines.
+        // Stop once we find a positive USD amount so a following zero-dollar row
+        // (for example Individual Tabs) cannot mask the contracted minimum.
+        for(let lookahead=1;lookahead<=3;lookahead++){
+          const existing=(candidate.match(/USD\s*-?[\d,.]+/gi)||[])
+            .map(parseMoney)
+            .filter(value=>value!==null&&Math.abs(value)>0.004);
+          if(existing.length)break;
+
+          const extra=clean(lines[i+lookahead]||"");
+          if(!extra)continue;
+
+          const extraSection=detectProductSection(extra);
+          if(extraSection&&extraSection!==section)break;
+          if(/\bTOTAL\s*:\s*USD\b/i.test(extra))break;
+
+          candidate=clean(candidate+" "+extra);
         }
 
         const amounts=(candidate.match(/USD\s*-?[\d,.]+/gi)||[])
@@ -4498,131 +4515,3 @@
       pageCounter.textContent=activePreviewPage+" of "+activePreviewPdf.numPages;
 
       if(modalRenderTask){
-        try{modalRenderTask.cancel()}catch(_){}
-        modalRenderTask=null;
-      }
-
-      modalCanvas.style.display="none";
-      modalLoading.style.display="block";
-
-      try{
-        const page=await activePreviewPdf.getPage(activePreviewPage);
-        const base=page.getViewport({scale:1});
-        const scale=Math.min((innerWidth*.82)/base.width,(innerHeight*.75)/base.height,1.7);
-        const viewport=page.getViewport({scale});
-        const output=Math.min(devicePixelRatio||1,2);
-        const ctx=modalCanvas.getContext("2d");
-
-        modalCanvas.width=Math.floor(viewport.width*output);
-        modalCanvas.height=Math.floor(viewport.height*output);
-        modalCanvas.style.width=Math.floor(viewport.width)+"px";
-        modalCanvas.style.height=Math.floor(viewport.height)+"px";
-
-        modalRenderTask=page.render({canvasContext:ctx,viewport,transform:output!==1?[output,0,0,output,0,0]:null});
-        await modalRenderTask.promise;
-        modalLoading.style.display="none";
-        modalCanvas.style.display="block";
-        modalRenderTask=null;
-      }catch(err){
-        if(err&&err.name!=="RenderingCancelledException")console.error(err);
-      }
-    }
-
-    function closePreview(){
-      pdfModal.classList.remove("open");
-      pdfModal.setAttribute("aria-hidden","true");
-      document.body.style.overflow="";
-      activePreviewPdf=null;
-      activePreviewPage=1;
-      if(modalRenderTask){try{modalRenderTask.cancel()}catch(_){}modalRenderTask=null}
-    }
-
-    prevPage.addEventListener("click",()=>{if(activePreviewPdf&&activePreviewPage>1){activePreviewPage--;renderModalPage()}});
-    nextPage.addEventListener("click",()=>{if(activePreviewPdf&&activePreviewPage<activePreviewPdf.numPages){activePreviewPage++;renderModalPage()}});
-    modalClose.addEventListener("click",closePreview);
-    pdfModal.addEventListener("click",e=>{if(e.target===pdfModal)closePreview()});
-    document.addEventListener("keydown",e=>{
-      if(!pdfModal.classList.contains("open"))return;
-      if(e.key==="Escape")closePreview();
-      if(e.key==="ArrowLeft"&&activePreviewPage>1){activePreviewPage--;renderModalPage()}
-      if(e.key==="ArrowRight"&&activePreviewPdf&&activePreviewPage<activePreviewPdf.numPages){activePreviewPage++;renderModalPage()}
-    });
-
-    async function extractLines(page){
-      const content=await page.getTextContent();
-      const items=content.items.filter(i=>i.str&&i.str.trim()).map(i=>({text:i.str.trim(),x:(i.transform&&i.transform[4])||0,y:(i.transform&&i.transform[5])||0,width:i.width||0}));
-      const rows=[];
-      for(const item of items){
-        let row=rows.find(r=>Math.abs(r.y-item.y)<=2.25);
-        if(!row){row={y:item.y,items:[]};rows.push(row)}
-        row.items.push(item);
-      }
-      rows.sort((a,b)=>b.y-a.y);
-      return rows.map(row=>{
-        row.items.sort((a,b)=>a.x-b.x);
-        let line="",right=null;
-        for(const item of row.items){
-          if(right!==null)line+=item.x-right>8?"  ":" ";
-          line+=item.text;
-          right=item.x+item.width;
-        }
-        return clean(line);
-      }).filter(Boolean);
-    }
-
-    async function terminalMessage(message,tone=""){
-      const line=document.createElement("div");
-      line.className="terminal-line"+(tone?" "+tone:"");
-      const prompt=document.createElement("span");
-      prompt.className="prompt";
-      prompt.textContent=tone==="success"?"✓":">";
-      const content=document.createElement("span");
-      line.append(prompt,content);
-      terminal.appendChild(line);
-
-      if(reduced){
-        content.textContent=message;
-        return;
-      }
-
-      const cursor=document.createElement("span");
-      cursor.className="cursor";
-      content.appendChild(cursor);
-
-      for(let i=0;i<message.length;i++){
-        cursor.insertAdjacentText("beforebegin",message[i]);
-        terminal.scrollTop=terminal.scrollHeight;
-        await delay(2+Math.random()*3);
-      }
-
-      cursor.remove();
-      await delay(12);
-    }
-
-    function parseMoney(value){
-      const n=Number(String(value||"").replace(/USD|\$|,/gi,"").trim());
-      return Number.isFinite(n)?n:null;
-    }
-    function moneyCents(value){
-      const n=Number(value);
-      return Number.isFinite(n)?Math.round((n+Number.EPSILON)*100):0;
-    }
-    function centsMoney(cents){
-      return moneyCents(Number(cents)/100)/100;
-    }
-    function formatSignedMoney(value){
-      if(value===null||!Number.isFinite(value))return"—";
-      if(Math.abs(value)<0.005)return formatMoney(0);
-      return value>0?"+"+formatMoney(value):formatMoney(value);
-    }
-        function formatMoney(value){
-      if(value===null||!Number.isFinite(value))return"—";
-      return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(value);
-    }
-    function clean(v){return String(v||"").replace(/\s+/g," ").replace(/^[-–—|]+|[-–—|]+$/g,"").trim()}
-    function esc(v){return String(v).replace(/[-\/\\^$*+?.()|[\]{}]/g,"\\$&")}
-    function formatBytes(b){if(!Number.isFinite(b)||b<=0)return"PDF";if(b<1024)return b+" B";if(b<1048576)return(b/1024).toFixed(1)+" KB";return(b/1048576).toFixed(1)+" MB"}
-    function delay(ms){return new Promise(r=>setTimeout(r,ms))}
-  </script>
-</body>
-</html>
