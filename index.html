@@ -10,8 +10,9 @@
     *{box-sizing:border-box;margin:0;padding:0}
     body{min-height:100vh;font-family:Arial,Helvetica,sans-serif;background:radial-gradient(circle at 50% 24%,#17171a 0%,#0d0d0f 40%,#080809 74%);color:var(--text)}
     button,input{font:inherit}button{color:inherit}#pdfInput,#toastCsvInput{display:none}
-    .landing{min-height:100vh;display:grid;place-items:center;padding:24px}
-    .landing-card{width:min(92vw,520px);padding:52px 42px 42px;text-align:center;background:var(--panel);border:1px solid #3a3a40;border-radius:14px;box-shadow:0 28px 80px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.03)}
+    .landing{position:relative;min-height:100vh;display:grid;place-items:center;overflow:hidden;padding:24px}
+    .floating-topgolf-logo{position:fixed;top:0;left:0;z-index:1;width:clamp(82px,7vw,112px);height:auto;max-height:58px;object-fit:contain;pointer-events:none;user-select:none;will-change:transform;filter:url(#topgolfLogoColor) drop-shadow(0 8px 18px rgba(0,0,0,.32))}
+    .landing-card{position:relative;z-index:2;width:min(92vw,520px);padding:52px 42px 42px;text-align:center;background:var(--panel);border:1px solid #3a3a40;border-radius:14px;box-shadow:0 28px 80px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.03)}
     .brand-mark{width:58px;height:58px;display:grid;place-items:center;margin:0 auto 16px;border:1px solid #486f9a;border-radius:14px;background:linear-gradient(145deg,#21364d,#142333);color:#9fc4ec;font:800 1.45rem Georgia,"Times New Roman",serif;box-shadow:0 10px 28px rgba(34,80,126,.2)}
     h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(2.6rem,8vw,4rem);line-height:.98;letter-spacing:-.045em;color:#fff;text-shadow:2px 2px 0 #2c2c31}
     .brand-title .brand-ar{color:#6f9fd1}
@@ -22,6 +23,8 @@
     .upload-button{width:100%;border:1px solid #6698d0;border-radius:11px;padding:15px 22px;background:var(--blue);color:#fff;font-size:1.02rem;font-weight:800;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.13);transition:.16s ease}
     .upload-button:hover{background:#5e93cc;transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.16)}
     .upload-hint{margin-top:10px;color:#777783;font-size:.78rem}
+    .logo-speed-control{margin-top:12px;padding:2px 3px 0}
+    .logo-speed-slider{width:100%;height:5px;display:block;margin:0;accent-color:var(--blue);cursor:pointer}
     .error-card{display:none;margin-top:18px;padding:13px 14px;border:1px solid #623b3b;border-radius:9px;background:#241718;color:#e3a5a5;font-size:.84rem;line-height:1.45}.error-card.visible{display:block}
     .app{display:none;width:min(94vw,1480px);margin:0 auto;padding:38px 0 74px}.app.active{display:block}
     .app-header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:28px}
@@ -223,10 +226,27 @@
   </style>
 </head>
 <body>
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute;pointer-events:none">
+    <defs>
+      <filter id="topgolfLogoColor" color-interpolation-filters="sRGB">
+        <feFlood id="topgolfLogoFlood" flood-color="#ffffff" result="logoColor" />
+        <feComposite in="logoColor" in2="SourceAlpha" operator="in" />
+      </filter>
+    </defs>
+  </svg>
+
   <input id="pdfInput" type="file" accept="application/pdf,.pdf">
   <input id="toastCsvInput" type="file" accept=".csv,text/csv">
 
   <main id="landing" class="landing">
+    <img
+      id="floatingTopgolfLogo"
+      class="floating-topgolf-logo"
+      src="https://raw.githubusercontent.com/ryanehinkle/beo_builder/main/assets/logo.png"
+      crossorigin="anonymous"
+      alt=""
+      aria-hidden="true"
+    />
     <section class="landing-card">
       <div class="brand-mark">AR</div>
       <h1 class="brand-title"><span class="brand-ar">AR</span><span class="brand-matic">matic</span></h1>
@@ -235,6 +255,18 @@
         <p class="upload-hint">PDF Only · Or drag and drop</p>
       </div>
       <div id="landingError" class="error-card"></div>
+      <div class="logo-speed-control">
+        <input
+          id="logoSpeedSlider"
+          class="logo-speed-slider"
+          type="range"
+          min="0.4"
+          max="10"
+          step="any"
+          value="1"
+          aria-label="Topgolf logo speed"
+        />
+      </div>
     </section>
   </main>
 
@@ -325,6 +357,9 @@
     const $=(id)=>document.getElementById(id);
     const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),modalEventName=$("modalEventName"),prevPage=$("prevPage"),nextPage=$("nextPage"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading");
     const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const floatingTopgolfLogo=$("floatingTopgolfLogo");
+    const landingCard=document.querySelector(".landing-card");
+    const logoSpeedSlider=$("logoSpeedSlider");
 
     let activePreviewPdf=null;
     let activePreviewPage=1;
@@ -337,6 +372,384 @@
     let portfolioSalesDisplay=0;
     let portfolioSalesAnimation=null;
     let enteredEvents=new Set();
+
+    function startFloatingTopgolfLogo() {
+      if (!floatingTopgolfLogo || !landingCard) return;
+
+      const logoColorFlood = document.getElementById("topgolfLogoFlood");
+
+      let x = 0;
+      let y = 0;
+      let vx = 105;
+      let vy = 82;
+      let lastTime = performance.now();
+      let started = false;
+      let mask = null;
+      let lastHue = null;
+      let speedMultiplier = Number(logoSpeedSlider?.value || 1);
+
+      // Use the solid visible portion of the white PNG for collision detection.
+      // The small inset intentionally lets the visible edge get truly flush
+      // with a wall/card instead of bouncing on barely-visible edge pixels.
+      const alphaThreshold = 200;
+      const touchInset = 2;
+
+      function placeLogo() {
+        floatingTopgolfLogo.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      }
+
+      function randomizeLogoColor() {
+        if (!logoColorFlood) return;
+
+        let hue = Math.floor(Math.random() * 360);
+
+        if (lastHue !== null) {
+          let attempts = 0;
+          while (
+            Math.min(Math.abs(hue - lastHue), 360 - Math.abs(hue - lastHue)) < 45 &&
+            attempts < 20
+          ) {
+            hue = Math.floor(Math.random() * 360);
+            attempts++;
+          }
+        }
+
+        lastHue = hue;
+        const saturation = 82 + Math.floor(Math.random() * 17);
+        const lightness = 54 + Math.floor(Math.random() * 12);
+        logoColorFlood.setAttribute(
+          "flood-color",
+          `hsl(${hue} ${saturation}% ${lightness}%)`
+        );
+      }
+
+      function rebuildPixelMask() {
+        const width = Math.max(1, Math.round(floatingTopgolfLogo.offsetWidth));
+        const height = Math.max(1, Math.round(floatingTopgolfLogo.offsetHeight));
+
+        if (!floatingTopgolfLogo.naturalWidth || !floatingTopgolfLogo.naturalHeight) return false;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) return false;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(floatingTopgolfLogo, 0, 0, width, height);
+
+        const pixels = ctx.getImageData(0, 0, width, height).data;
+        const alpha = new Uint8Array(width * height);
+
+        let minX = width;
+        let minY = height;
+        let maxX = -1;
+        let maxY = -1;
+
+        for (let py = 0; py < height; py++) {
+          for (let px = 0; px < width; px++) {
+            const a = pixels[(py * width + px) * 4 + 3];
+            if (a < alphaThreshold) continue;
+
+            alpha[py * width + px] = 1;
+            if (px < minX) minX = px;
+            if (px > maxX) maxX = px;
+            if (py < minY) minY = py;
+            if (py > maxY) maxY = py;
+          }
+        }
+
+        if (maxX < minX || maxY < minY) {
+          minX = 0;
+          minY = 0;
+          maxX = width - 1;
+          maxY = height - 1;
+        }
+
+        mask = { width, height, alpha, minX, minY, maxX, maxY };
+        return true;
+      }
+
+      function cardShape() {
+        const source = landingCard.getBoundingClientRect();
+        const rect = {
+          left: source.left + touchInset,
+          right: source.right - touchInset,
+          top: source.top + touchInset,
+          bottom: source.bottom - touchInset,
+          width: Math.max(0, source.width - touchInset * 2),
+          height: Math.max(0, source.height - touchInset * 2)
+        };
+        const sourceRadius = parseFloat(getComputedStyle(landingCard).borderRadius) || 0;
+        const radius = Math.max(0, sourceRadius - touchInset);
+        return { rect, radius };
+      }
+
+      function pointInsideRoundedRect(px, py, rect, radius) {
+        if (px < rect.left || px > rect.right || py < rect.top || py > rect.bottom) {
+          return false;
+        }
+
+        const r = Math.min(radius, rect.width / 2, rect.height / 2);
+        if (r <= 0) return true;
+
+        const innerLeft = rect.left + r;
+        const innerRight = rect.right - r;
+        const innerTop = rect.top + r;
+        const innerBottom = rect.bottom - r;
+
+        if (px >= innerLeft && px <= innerRight) return true;
+        if (py >= innerTop && py <= innerBottom) return true;
+
+        const cx = px < innerLeft ? innerLeft : innerRight;
+        const cy = py < innerTop ? innerTop : innerBottom;
+        const dx = px - cx;
+        const dy = py - cy;
+
+        return dx * dx + dy * dy <= r * r;
+      }
+
+      function pixelMaskHitsCard(testX, testY) {
+        if (!mask) return false;
+
+        const { rect, radius } = cardShape();
+
+        const logoLeft = testX + mask.minX;
+        const logoRight = testX + mask.maxX + 1;
+        const logoTop = testY + mask.minY;
+        const logoBottom = testY + mask.maxY + 1;
+
+        if (
+          logoRight <= rect.left ||
+          logoLeft >= rect.right ||
+          logoBottom <= rect.top ||
+          logoTop >= rect.bottom
+        ) {
+          return false;
+        }
+
+        const startX = Math.max(mask.minX, Math.floor(rect.left - testX) - 1);
+        const endX = Math.min(mask.maxX, Math.ceil(rect.right - testX) + 1);
+        const startY = Math.max(mask.minY, Math.floor(rect.top - testY) - 1);
+        const endY = Math.min(mask.maxY, Math.ceil(rect.bottom - testY) + 1);
+
+        for (let py = startY; py <= endY; py++) {
+          const row = py * mask.width;
+          const screenY = testY + py + 0.5;
+
+          for (let px = startX; px <= endX; px++) {
+            if (!mask.alpha[row + px]) continue;
+
+            const screenX = testX + px + 0.5;
+            if (pointInsideRoundedRect(screenX, screenY, rect, radius)) {
+              return true;
+            }
+          }
+        }
+
+        return false;
+      }
+
+      function findLastSafePosition(fromX, fromY, toX, toY) {
+        let low = 0;
+        let high = 1;
+
+        // Binary-search the motion path so the logo stops essentially flush
+        // with the card instead of jumping back an entire animation frame.
+        for (let i = 0; i < 18; i++) {
+          const mid = (low + high) / 2;
+          const testX = fromX + (toX - fromX) * mid;
+          const testY = fromY + (toY - fromY) * mid;
+
+          if (pixelMaskHitsCard(testX, testY)) {
+            high = mid;
+          } else {
+            low = mid;
+          }
+        }
+
+        return {
+          x: fromX + (toX - fromX) * low,
+          y: fromY + (toY - fromY) * low
+        };
+      }
+
+      function clampToVisiblePixels() {
+        if (!mask) return;
+
+        const minAllowedX = -mask.minX - touchInset;
+        const maxAllowedX = window.innerWidth - (mask.maxX + 1) + touchInset;
+        const minAllowedY = -mask.minY - touchInset;
+        const maxAllowedY = window.innerHeight - (mask.maxY + 1) + touchInset;
+
+        x = Math.min(Math.max(x, minAllowedX), maxAllowedX);
+        y = Math.min(Math.max(y, minAllowedY), maxAllowedY);
+      }
+
+      function randomizeStart() {
+        if (!mask) return;
+
+        const minAllowedX = -mask.minX;
+        const maxAllowedX = Math.max(minAllowedX, window.innerWidth - (mask.maxX + 1));
+        const minAllowedY = -mask.minY;
+        const maxAllowedY = Math.max(minAllowedY, window.innerHeight - (mask.maxY + 1));
+
+        let found = false;
+
+        for (let attempt = 0; attempt < 200; attempt++) {
+          const testX = minAllowedX + Math.random() * (maxAllowedX - minAllowedX);
+          const testY = minAllowedY + Math.random() * (maxAllowedY - minAllowedY);
+
+          if (!pixelMaskHitsCard(testX, testY)) {
+            x = testX;
+            y = testY;
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          x = minAllowedX;
+          y = minAllowedY;
+        }
+
+        vx = Math.abs(vx) * (Math.random() < 0.5 ? -1 : 1);
+        vy = Math.abs(vy) * (Math.random() < 0.5 ? -1 : 1);
+        placeLogo();
+      }
+
+      function resolveWindowEdges(nextX, nextY) {
+        if (!mask) return { x: nextX, y: nextY, collided: false };
+
+        const minAllowedX = -mask.minX - touchInset;
+        const maxAllowedX = window.innerWidth - (mask.maxX + 1) + touchInset;
+        const minAllowedY = -mask.minY - touchInset;
+        const maxAllowedY = window.innerHeight - (mask.maxY + 1) + touchInset;
+
+        let collided = false;
+
+        if (nextX <= minAllowedX) {
+          nextX = minAllowedX;
+          vx = Math.abs(vx);
+          collided = true;
+        } else if (nextX >= maxAllowedX) {
+          nextX = maxAllowedX;
+          vx = -Math.abs(vx);
+          collided = true;
+        }
+
+        if (nextY <= minAllowedY) {
+          nextY = minAllowedY;
+          vy = Math.abs(vy);
+          collided = true;
+        } else if (nextY >= maxAllowedY) {
+          nextY = maxAllowedY;
+          vy = -Math.abs(vy);
+          collided = true;
+        }
+
+        return { x: nextX, y: nextY, collided };
+      }
+
+      function resolveCardCollision(oldX, oldY, nextX, nextY) {
+        if (!pixelMaskHitsCard(nextX, nextY)) {
+          return { x: nextX, y: nextY, collided: false };
+        }
+
+        const hitsFromX = pixelMaskHitsCard(nextX, oldY);
+        const hitsFromY = pixelMaskHitsCard(oldX, nextY);
+
+        let contact;
+
+        if (hitsFromX && !hitsFromY) {
+          contact = findLastSafePosition(oldX, nextY, nextX, nextY);
+          vx = -vx;
+        } else if (!hitsFromX && hitsFromY) {
+          contact = findLastSafePosition(nextX, oldY, nextX, nextY);
+          vy = -vy;
+        } else {
+          contact = findLastSafePosition(oldX, oldY, nextX, nextY);
+          vx = -vx;
+          vy = -vy;
+        }
+
+        return { x: contact.x, y: contact.y, collided: true };
+      }
+
+      function animate(now) {
+        if (landing.style.display === "none") return;
+
+        if (!started || !mask) {
+          requestAnimationFrame(animate);
+          return;
+        }
+
+        const dt = Math.min((now - lastTime) / 1000, 0.032);
+        lastTime = now;
+
+        const oldX = x;
+        const oldY = y;
+
+        let nextX = x + vx * speedMultiplier * dt;
+        let nextY = y + vy * speedMultiplier * dt;
+        let collided = false;
+
+        const edgeResult = resolveWindowEdges(nextX, nextY);
+        nextX = edgeResult.x;
+        nextY = edgeResult.y;
+        collided = collided || edgeResult.collided;
+
+        const cardResult = resolveCardCollision(oldX, oldY, nextX, nextY);
+        nextX = cardResult.x;
+        nextY = cardResult.y;
+        collided = collided || cardResult.collided;
+
+        x = nextX;
+        y = nextY;
+
+        if (collided) {
+          randomizeLogoColor();
+        }
+
+        placeLogo();
+        requestAnimationFrame(animate);
+      }
+
+      function initialize() {
+        if (!rebuildPixelMask()) return;
+
+        randomizeStart();
+        lastTime = performance.now();
+        started = true;
+      }
+
+      logoSpeedSlider?.addEventListener("input", () => {
+        speedMultiplier = Math.round(Number(logoSpeedSlider.value || 1) * 100) / 100;
+      });
+
+      if (floatingTopgolfLogo.complete && floatingTopgolfLogo.naturalWidth) {
+        initialize();
+      } else {
+        floatingTopgolfLogo.addEventListener("load", initialize, { once: true });
+      }
+
+      window.addEventListener("resize", () => {
+        if (!rebuildPixelMask()) return;
+
+        clampToVisiblePixels();
+
+        if (pixelMaskHitsCard(x, y)) {
+          randomizeStart();
+        } else {
+          placeLogo();
+        }
+      });
+
+      requestAnimationFrame(animate);
+    }
+
+    startFloatingTopgolfLogo();
 
     uploadButton.addEventListener("click",()=>pdfInput.click());
     newFileButton.addEventListener("click",()=>pdfInput.click());
