@@ -217,7 +217,7 @@
     .pdf-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;gap:16px;padding:24px;background:rgba(3,3,5,.76);backdrop-filter:blur(8px)}
     .pdf-modal.open{display:flex}
     .modal-window{position:relative;width:max-content;max-width:98vw;max-height:94vh;display:flex;flex-direction:column;border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
-    .pdf-modal.has-recap .modal-window{max-width:46vw}
+    .pdf-modal.has-recap .modal-window,.pdf-modal.has-recap .recap-window{width:min(46vw,720px);max-width:min(46vw,720px)}
     .recap-window{position:relative;width:min(46vw,720px);max-height:94vh;display:flex;flex-direction:column;border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
     .recap-window[hidden]{display:none}
     .recap-topbar{display:flex;align-items:center;min-height:48px;padding:11px 14px;border-bottom:1px solid #303036;background:#1b1b1f}
@@ -360,7 +360,6 @@
       </div>
       <div id="modalBody" class="modal-body">
         <div id="beoPane" class="modal-pane beo-pane">
-          <div class="modal-pane-label">BEO</div>
           <div id="modalLoading" class="modal-loading">Loading page…</div>
           <canvas id="modalCanvas"></canvas>
         </div>
@@ -4771,24 +4770,30 @@
         modalEventName.textContent=name||"Event BEO";
       }
 
-      pdfModal.classList.add("open");
-      pdfModal.setAttribute("aria-hidden","false");
-      document.body.style.overflow="hidden";
-      await renderModalPage();
-    }
-
-    async function renderModalPage(){
-      if(!activePreviewPdf)return;
-
       const hasRecap=Boolean(
         activePreviewRecapPdf &&
         activePreviewRecapPage &&
         activePreviewRecapPage<=activePreviewRecapPdf.numPages
       );
-      const sideBySide=hasRecap&&innerWidth>900;
 
       pdfModal.classList.toggle("has-recap",hasRecap);
       recapPane.hidden=!hasRecap;
+      pdfModal.classList.add("open");
+      pdfModal.setAttribute("aria-hidden","false");
+      document.body.style.overflow="hidden";
+
+      await Promise.all([
+        renderModalPage(),
+        hasRecap?renderRecapPreview():Promise.resolve()
+      ]);
+    }
+
+    async function renderModalPage(){
+      if(!activePreviewPdf)return;
+
+      const sideBySide=
+        pdfModal.classList.contains("has-recap")&&
+        innerWidth>900;
 
       prevPage.disabled=activePreviewPage<=1;
       nextPage.disabled=activePreviewPage>=activePreviewPdf.numPages;
@@ -4798,21 +4803,9 @@
         try{modalRenderTask.cancel()}catch(_){}
         modalRenderTask=null;
       }
-      if(recapRenderTask){
-        try{recapRenderTask.cancel()}catch(_){}
-        recapRenderTask=null;
-      }
 
       modalCanvas.style.display="none";
       modalLoading.style.display="block";
-
-      if(hasRecap){
-        recapCanvas.style.display="none";
-        recapLoading.style.display="block";
-      }else{
-        recapCanvas.style.display="none";
-        recapLoading.style.display="none";
-      }
 
       try{
         const page=await activePreviewPdf.getPage(activePreviewPage);
@@ -4839,36 +4832,55 @@
         modalRenderTask=null;
         modalLoading.style.display="none";
         modalCanvas.style.display="block";
+      }catch(err){
+        if(err&&err.name!=="RenderingCancelledException")console.error(err);
+      }
+    }
 
-        if(hasRecap){
-          const recapPage=await activePreviewRecapPdf.getPage(activePreviewRecapPage);
-          const recapBase=recapPage.getViewport({scale:1});
-          const recapWidthLimit=sideBySide?innerWidth*.42:innerWidth*.82;
-          const recapScale=Math.min(
-            recapWidthLimit/recapBase.width,
-            heightLimit/recapBase.height,
-            1.7
-          );
-          const recapViewport=recapPage.getViewport({scale:recapScale});
-          const recapOutput=Math.min(devicePixelRatio||1,2);
-          const recapCtx=recapCanvas.getContext("2d");
+    async function renderRecapPreview(){
+      if(
+        !activePreviewRecapPdf ||
+        !activePreviewRecapPage ||
+        activePreviewRecapPage>activePreviewRecapPdf.numPages
+      ){
+        recapCanvas.style.display="none";
+        recapLoading.style.display="none";
+        return;
+      }
 
-          recapCanvas.width=Math.floor(recapViewport.width*recapOutput);
-          recapCanvas.height=Math.floor(recapViewport.height*recapOutput);
-          recapCanvas.style.width=Math.floor(recapViewport.width)+"px";
-          recapCanvas.style.height=Math.floor(recapViewport.height)+"px";
+      if(recapRenderTask){
+        try{recapRenderTask.cancel()}catch(_){}
+        recapRenderTask=null;
+      }
 
-          recapRenderTask=recapPage.render({
-            canvasContext:recapCtx,
-            viewport:recapViewport,
-            transform:recapOutput!==1?[recapOutput,0,0,recapOutput,0,0]:null
-          });
+      recapCanvas.style.display="none";
+      recapLoading.style.display="block";
 
-          await recapRenderTask.promise;
-          recapRenderTask=null;
-          recapLoading.style.display="none";
-          recapCanvas.style.display="block";
-        }
+      try{
+        const page=await activePreviewRecapPdf.getPage(activePreviewRecapPage);
+        const base=page.getViewport({scale:1});
+        const widthLimit=innerWidth>900?innerWidth*.42:innerWidth*.82;
+        const heightLimit=innerHeight*.73;
+        const scale=Math.min(widthLimit/base.width,heightLimit/base.height,1.7);
+        const viewport=page.getViewport({scale});
+        const output=Math.min(devicePixelRatio||1,2);
+        const ctx=recapCanvas.getContext("2d");
+
+        recapCanvas.width=Math.floor(viewport.width*output);
+        recapCanvas.height=Math.floor(viewport.height*output);
+        recapCanvas.style.width=Math.floor(viewport.width)+"px";
+        recapCanvas.style.height=Math.floor(viewport.height)+"px";
+
+        recapRenderTask=page.render({
+          canvasContext:ctx,
+          viewport,
+          transform:output!==1?[output,0,0,output,0,0]:null
+        });
+
+        await recapRenderTask.promise;
+        recapRenderTask=null;
+        recapLoading.style.display="none";
+        recapCanvas.style.display="block";
       }catch(err){
         if(err&&err.name!=="RenderingCancelledException")console.error(err);
       }
