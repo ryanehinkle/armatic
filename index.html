@@ -9,7 +9,7 @@
     :root{color-scheme:dark;--bg:#080809;--panel:#18181b;--panel2:#1d1d21;--border:#34343b;--soft:#29292f;--text:#f5f5f7;--muted:#9696a0;--blue:#5185bd;--green:#65b47e}
     *{box-sizing:border-box;margin:0;padding:0}
     body{min-height:100vh;font-family:Arial,Helvetica,sans-serif;background:radial-gradient(circle at 50% 24%,#17171a 0%,#0d0d0f 40%,#080809 74%);color:var(--text)}
-    button,input{font:inherit}button{color:inherit}#pdfInput,#toastCsvInput,#recapPdfInput,#armaticInput{display:none}
+    button,input{font:inherit}button{color:inherit}#pdfInput,#toastCsvInput,#recapPdfInput{display:none}
     .landing{position:relative;min-height:100vh;display:grid;place-items:center;overflow:hidden;padding:24px}
     .floating-topgolf-logo{position:fixed;top:0;left:0;z-index:1;width:clamp(82px,7vw,112px);height:auto;max-height:58px;object-fit:contain;pointer-events:none;user-select:none;will-change:transform;filter:url(#topgolfLogoColor) drop-shadow(0 8px 18px rgba(0,0,0,.32))}
     .landing-card{position:relative;z-index:2;width:min(92vw,520px);padding:52px 42px 42px;text-align:center;background:var(--panel);border:1px solid #3a3a40;border-radius:14px;box-shadow:0 28px 80px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.03)}
@@ -36,14 +36,11 @@
     .app{display:none;width:min(94vw,1480px);margin:0 auto;padding:38px 0 74px}.app.active{display:block}
     .app-header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:28px}
     .app-brand{cursor:pointer;user-select:none}.app-brand h1{font-size:clamp(2.15rem,4vw,3rem)}.app-brand p{margin-top:7px;color:var(--muted);font-size:.9rem}
-    .app-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px}
-    .session-split{width:68px;height:42px;display:flex;overflow:hidden;border:1px solid #44444b;border-radius:10px;background:#202024;transition:width .2s cubic-bezier(.2,.8,.2,1),border-color .16s ease,box-shadow .16s ease}
-    .session-split:hover,.session-split:focus-within{width:136px;border-color:#565660;box-shadow:0 7px 20px rgba(0,0,0,.18)}
-    .session-action{flex:0 0 67px;height:40px;border:0;background:transparent;color:#d4d4da;font-size:.78rem;font-weight:800;cursor:pointer;transition:background .14s ease,color .14s ease}
-    .session-action+.session-action{border-left:1px solid #393940}
-    .session-action:hover,.session-action:focus-visible{background:#2b2b31;color:#fff;outline:none}
-    .session-action:disabled{opacity:.4;cursor:default}
-    .new-file-button{flex:0 0 auto;border:1px solid #44444b;border-radius:10px;padding:11px 15px;background:#242429;color:#d8d8de;font-weight:750;cursor:pointer}.new-file-button:hover{background:#2e2e34;border-color:#55555e}
+    .app-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px}
+    .header-action-button{height:42px;min-width:108px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #44444b;border-radius:10px;padding:0 15px;background:#242429;color:#d8d8de;font-size:.79rem;font-weight:800;letter-spacing:.005em;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.025);transition:background .15s ease,border-color .15s ease,color .15s ease,transform .15s ease,box-shadow .15s ease}
+    .header-action-button:hover:not(:disabled),.header-action-button:focus-visible{background:#2e2e34;border-color:#5a5a63;color:#fff;transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.035);outline:none}
+    .header-action-button:active:not(:disabled){transform:translateY(0)}
+    .header-action-button:disabled{opacity:.4;cursor:default}
     .file-strip{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:20px;padding:13px 16px;border:1px solid var(--soft);border-radius:10px;background:#121215;color:#b8b8c0;font-size:.84rem}
     .file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e5e5e9;font-weight:700}.file-meta{flex:0 0 auto;color:#7f7f89}
     .analysis-grid{display:grid;grid-template-columns:minmax(320px,.82fr) minmax(0,1.18fr);gap:20px;align-items:start}
@@ -269,7 +266,6 @@
   <input id="pdfInput" type="file" accept="application/pdf,.pdf,.armatic">
   <input id="toastCsvInput" type="file" accept=".csv,text/csv">
   <input id="recapPdfInput" type="file" accept="application/pdf,.pdf">
-  <input id="armaticInput" type="file" accept=".armatic,application/json">
 
   <main id="landing" class="landing">
     <img
@@ -313,11 +309,8 @@
         <h1 class="brand-title"><span class="brand-ar">AR</span><span class="brand-matic">matic</span></h1>
       </div>
       <div class="app-header-actions">
-        <div class="session-split" aria-label="Save or load ARmatic day">
-          <button id="saveSessionButton" class="session-action" type="button">Save</button>
-          <button id="loadSessionButton" class="session-action" type="button">Load</button>
-        </div>
-        <button id="newFileButton" class="new-file-button" type="button">Upload another PDF</button>
+        <button id="saveSessionButton" class="header-action-button" type="button">Save</button>
+        <button id="newFileButton" class="header-action-button" type="button">Upload new</button>
       </div>
     </header>
 
@@ -410,7 +403,7 @@
 
     const {PDFDocument,rgb,StandardFonts}=window.PDFLib;
     const $=(id)=>document.getElementById(id);
-    const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),recapPdfInput=$("recapPdfInput"),armaticInput=$("armaticInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),saveSessionButton=$("saveSessionButton"),loadSessionButton=$("loadSessionButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),recapUploadButton=$("recapUploadButton"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),modalEventName=$("modalEventName"),modalBody=$("modalBody"),recapPane=$("recapPane"),prevPage=$("prevPage"),nextPage=$("nextPage"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading"),recapCanvas=$("recapCanvas"),recapLoading=$("recapLoading");
+    const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),recapPdfInput=$("recapPdfInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),saveSessionButton=$("saveSessionButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),recapUploadButton=$("recapUploadButton"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),modalEventName=$("modalEventName"),modalBody=$("modalBody"),recapPane=$("recapPane"),prevPage=$("prevPage"),nextPage=$("nextPage"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading"),recapCanvas=$("recapCanvas"),recapLoading=$("recapLoading");
     const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
     const floatingTopgolfLogo=$("floatingTopgolfLogo");
     const landingCard=document.querySelector(".landing-card");
@@ -851,7 +844,6 @@
     uploadButton.addEventListener("click",()=>pdfInput.click());
     newFileButton.addEventListener("click",()=>pdfInput.click());
     saveSessionButton.addEventListener("click",saveArmaticSession);
-    loadSessionButton.addEventListener("click",()=>armaticInput.click());
     exportButton.addEventListener("click",exportAnnotatedPdf);
     portfolioSalesLink.addEventListener("click",(event)=>{
       event.preventDefault();
@@ -915,11 +907,6 @@
       }
 
       pdfInput.value="";
-    });
-    armaticInput.addEventListener("change",()=>{
-      const file=armaticInput.files&&armaticInput.files[0];
-      if(file)loadArmaticSession(file);
-      armaticInput.value="";
     });
     appBrand.addEventListener("click",()=>location.reload());
     appBrand.addEventListener("keydown",(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();location.reload()}});
