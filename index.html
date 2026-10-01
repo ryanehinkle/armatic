@@ -2692,8 +2692,32 @@
         }
       }
 
+      const billingHeaderIndex=lines.findIndex(
+        l=>/^\s*Subtotal\s+Taxes\s+Service Charge\s+Admin Fee\s+Total Charges\s*$/i.test(l)
+      );
+      let subtotal=null,taxes=null,serviceCharge=null,adminFee=null,totalCharges=null;
+
+      if(billingHeaderIndex>=0&&lines[billingHeaderIndex+1]){
+        const amounts=(lines[billingHeaderIndex+1].match(/USD\s*-?[\d,.]+/gi)||[]).map(parseMoney);
+        subtotal=amounts[0]??null;
+        taxes=amounts[1]??null;
+        serviceCharge=amounts[2]??null;
+        adminFee=amounts[3]??null;
+        totalCharges=amounts[4]??null;
+      }
+
       if(chargesFeesTotal>0.004){
-        const remainingCharges=Math.max(0,chargesFeesTotal-voluntaryGratuity);
+        // The Charges & Fees section total can include the contracted voluntary
+        // gratuity PLUS the Billing Summary's Service Charge/Admin Fee. Those
+        // billing charges are already tracked separately and must not become an
+        // extra "Other Fees" contracted bucket (which would inflate subtotal/AR).
+        const knownBillingCharges=
+          Math.max(0,Number(serviceCharge||0))+
+          Math.max(0,Number(adminFee||0));
+        const remainingCharges=Math.max(
+          0,
+          chargesFeesTotal-voluntaryGratuity-knownBillingCharges
+        );
 
         if(remainingCharges>0.004){
           categories["Other Fees"]+=remainingCharges;
@@ -2721,20 +2745,6 @@
         incentiveAdjustments[target]=(incentiveAdjustments[target]||0)+amount;
         categories[target]=Math.max(0,current-amount);
         detected[target]=true;
-      }
-
-      const billingHeaderIndex=lines.findIndex(
-        l=>/^\s*Subtotal\s+Taxes\s+Service Charge\s+Admin Fee\s+Total Charges\s*$/i.test(l)
-      );
-      let subtotal=null,taxes=null,serviceCharge=null,adminFee=null,totalCharges=null;
-
-      if(billingHeaderIndex>=0&&lines[billingHeaderIndex+1]){
-        const amounts=(lines[billingHeaderIndex+1].match(/USD\s*-?[\d,.]+/gi)||[]).map(parseMoney);
-        subtotal=amounts[0]??null;
-        taxes=amounts[1]??null;
-        serviceCharge=amounts[2]??null;
-        adminFee=amounts[3]??null;
-        totalCharges=amounts[4]??null;
       }
 
       if(voluntaryGratuity>0.004){
