@@ -1629,12 +1629,20 @@
         const veryLongThin=
           (componentWidth>=55&&componentHeight<=3) ||
           (componentHeight>=45&&componentWidth<=3);
+        const nearFullWidthHorizontalLine=
+          componentWidth>=360 &&
+          componentHeight<=18 &&
+          componentWidth/componentHeight>=20;
 
-        // Reject scanner crumbs, hairline streaks, and very sparse artifacts.
+        // Reject scanner crumbs, hairline streaks, very sparse artifacts, and
+        // long horizontal rules/scratches that run across most of the recap.
+        // Those near-edge-to-edge lines are form/scan artifacts, not opportunity
+        // handwriting, even when a slightly crooked/thick scan makes them more
+        // than a 1-3px hairline.
         if(area<10)continue;
         if(componentWidth<4||componentHeight<3)continue;
         if(density<0.06)continue;
-        if(veryLongThin)continue;
+        if(veryLongThin||nearFullWidthHorizontalLine)continue;
 
         totalValidInk+=area;
         largestValid=Math.max(largestValid,area);
