@@ -432,6 +432,7 @@
     let activePreviewGroupIndex=-1;
     let modalRenderTask=null;
     let recapRenderTask=null;
+    const previewPageCache=new Map();
     let currentSourceBytes=null;
     let currentSourcePdfJs=null;
     let currentRecapBytes=null;
@@ -1408,6 +1409,7 @@
         }
 
         const groups=buildEventGroups(pageRecords);
+        previewPageCache.clear();
         currentGroups=groups;
         eventCount.textContent=groups.length+(groups.length===1?" event":" events");
         updateEventsProgress();
@@ -1493,6 +1495,7 @@
 
           const card=await renderEventCard(group,index,groups.length);
           eventsGrid.appendChild(card);
+          preloadEventPreview(group).catch(()=>{});
 
           const detail=[parsed.name,parsed.date,parsed.time,parsed.guests?parsed.guests+" guests":null].filter(Boolean).join(" · ");
           await terminalMessage(String(index).padStart(2,"0")+"/"+String(groups.length).padStart(2,"0")+"  "+detail,"success");
@@ -5369,6 +5372,72 @@
       }
     }
 
+    function previewCacheKey(pdf,pageNumber,widthLimit,heightLimit){
+      const id=pdf?._armaticPreviewId||(pdf._armaticPreviewId="p"+Math.random().toString(36).slice(2));
+      return [
+        id,
+        pageNumber,
+        Math.round(widthLimit),
+        Math.round(heightLimit),
+        Math.min(devicePixelRatio||1,2)
+      ].join(":");
+    }
+
+    async function getCachedPreviewBitmap(pdf,pageNumber,widthLimit,heightLimit){
+      const key=previewCacheKey(pdf,pageNumber,widthLimit,heightLimit);
+      const cached=previewPageCache.get(key);
+      if(cached)return cached;
+
+      const page=await pdf.getPage(pageNumber);
+      const base=page.getViewport({scale:1});
+      const scale=Math.min(widthLimit/base.width,heightLimit/base.height,1.7);
+      const viewport=page.getViewport({scale});
+      const output=Math.min(devicePixelRatio||1,2);
+      const offscreen=document.createElement("canvas");
+      const ctx=offscreen.getContext("2d");
+
+      offscreen.width=Math.floor(viewport.width*output);
+      offscreen.height=Math.floor(viewport.height*output);
+
+      await page.render({
+        canvasContext:ctx,
+        viewport,
+        transform:output!==1?[output,0,0,output,0,0]:null
+      }).promise;
+
+      const entry={
+        canvas:offscreen,
+        cssWidth:Math.floor(viewport.width),
+        cssHeight:Math.floor(viewport.height)
+      };
+
+      previewPageCache.set(key,entry);
+      return entry;
+    }
+
+    async function preloadEventPreview(group){
+      if(!group?.previewPdf&&!group?.pdf)return;
+      const pdf=group.previewPdf||group.pdf;
+      const sideBySide=Boolean(group.recapPdf&&group.recapPageNumber&&innerWidth>900);
+      const widthLimit=sideBySide?innerWidth*.47:innerWidth*.90;
+      const heightLimit=innerHeight*.84;
+
+      const jobs=[getCachedPreviewBitmap(pdf,1,widthLimit,heightLimit)];
+
+      if(group.recapPdf&&group.recapPageNumber){
+        jobs.push(
+          getCachedPreviewBitmap(
+            group.recapPdf,
+            group.recapPageNumber,
+            innerWidth>900?innerWidth*.47:innerWidth*.90,
+            innerHeight*.84
+          )
+        );
+      }
+
+      await Promise.allSettled(jobs);
+    }
+
     async function openPreview(
       pdf,
       name,
@@ -5432,6 +5501,13 @@
         renderModalPage(),
         hasRecap?renderRecapPreview():Promise.resolve()
       ]);
+
+      const adjacent=[
+        currentGroups[activePreviewGroupIndex-1],
+        currentGroups[activePreviewGroupIndex+1]
+      ].filter(Boolean);
+
+      adjacent.forEach(item=>preloadEventPreview(item).catch(()=>{}));
     }
 
     async function renderModalPage(){
@@ -5450,36 +5526,46 @@
         modalRenderTask=null;
       }
 
-      modalCanvas.style.display="none";
-      modalLoading.style.display="block";
-
       try{
-        const page=await activePreviewPdf.getPage(activePreviewPage);
-        const base=page.getViewport({scale:1});
         const widthLimit=sideBySide?innerWidth*.47:innerWidth*.90;
         const heightLimit=innerHeight*.84;
-        const scale=Math.min(widthLimit/base.width,heightLimit/base.height,1.7);
-        const viewport=page.getViewport({scale});
-        const output=Math.min(devicePixelRatio||1,2);
+        const cached=await getCachedPreviewBitmap(
+          activePreviewPdf,
+          activePreviewPage,
+          widthLimit,
+          heightLimit
+        );
         const ctx=modalCanvas.getContext("2d");
 
-        modalCanvas.width=Math.floor(viewport.width*output);
-        modalCanvas.height=Math.floor(viewport.height*output);
-        modalCanvas.style.width=Math.floor(viewport.width)+"px";
-        modalCanvas.style.height=Math.floor(viewport.height)+"px";
+        modalCanvas.width=cached.canvas.width;
+        modalCanvas.height=cached.canvas.height;
+        modalCanvas.style.width=cached.cssWidth+"px";
+        modalCanvas.style.height=cached.cssHeight+"px";
+        ctx.clearRect(0,0,modalCanvas.width,modalCanvas.height);
+        ctx.drawImage(cached.canvas,0,0);
 
-        modalRenderTask=page.render({
-          canvasContext:ctx,
-          viewport,
-          transform:output!==1?[output,0,0,output,0,0]:null
-        });
-
-        await modalRenderTask.promise;
-        modalRenderTask=null;
         modalLoading.style.display="none";
         modalCanvas.style.display="block";
+
+        // Warm the neighboring BEO page while this one is visible.
+        const neighbor=
+          activePreviewPage<activePreviewPdf.numPages
+            ? activePreviewPage+1
+            : activePreviewPage>1
+              ? activePreviewPage-1
+              : null;
+        if(neighbor){
+          getCachedPreviewBitmap(
+            activePreviewPdf,
+            neighbor,
+            widthLimit,
+            heightLimit
+          ).catch(()=>{});
+        }
       }catch(err){
-        if(err&&err.name!=="RenderingCancelledException")console.error(err);
+        console.error(err);
+        modalLoading.style.display="block";
+        modalCanvas.style.display="none";
       }
     }
 
@@ -5499,36 +5585,30 @@
         recapRenderTask=null;
       }
 
-      recapCanvas.style.display="none";
-      recapLoading.style.display="block";
-
       try{
-        const page=await activePreviewRecapPdf.getPage(activePreviewRecapPage);
-        const base=page.getViewport({scale:1});
         const widthLimit=innerWidth>900?innerWidth*.47:innerWidth*.90;
         const heightLimit=innerHeight*.84;
-        const scale=Math.min(widthLimit/base.width,heightLimit/base.height,1.7);
-        const viewport=page.getViewport({scale});
-        const output=Math.min(devicePixelRatio||1,2);
+        const cached=await getCachedPreviewBitmap(
+          activePreviewRecapPdf,
+          activePreviewRecapPage,
+          widthLimit,
+          heightLimit
+        );
         const ctx=recapCanvas.getContext("2d");
 
-        recapCanvas.width=Math.floor(viewport.width*output);
-        recapCanvas.height=Math.floor(viewport.height*output);
-        recapCanvas.style.width=Math.floor(viewport.width)+"px";
-        recapCanvas.style.height=Math.floor(viewport.height)+"px";
+        recapCanvas.width=cached.canvas.width;
+        recapCanvas.height=cached.canvas.height;
+        recapCanvas.style.width=cached.cssWidth+"px";
+        recapCanvas.style.height=cached.cssHeight+"px";
+        ctx.clearRect(0,0,recapCanvas.width,recapCanvas.height);
+        ctx.drawImage(cached.canvas,0,0);
 
-        recapRenderTask=page.render({
-          canvasContext:ctx,
-          viewport,
-          transform:output!==1?[output,0,0,output,0,0]:null
-        });
-
-        await recapRenderTask.promise;
-        recapRenderTask=null;
         recapLoading.style.display="none";
         recapCanvas.style.display="block";
       }catch(err){
-        if(err&&err.name!=="RenderingCancelledException")console.error(err);
+        console.error(err);
+        recapLoading.style.display="block";
+        recapCanvas.style.display="none";
       }
     }
 
