@@ -3140,7 +3140,9 @@
       preview.className="event-preview";
       const canvas=document.createElement("canvas");
       preview.appendChild(canvas);
-      await renderThumbnail(group.pdf,canvas);
+
+      group.previewPdf=await buildEventPreviewPdf(group);
+      await renderThumbnail(group.previewPdf||group.pdf,canvas);
 
       const body=document.createElement("div");
       body.className="event-card-body";
@@ -3429,6 +3431,10 @@
         p.arProcessed=false;
         p.arComparison=null;
         group.arComparison=null;
+        group.previewPdf=group.pdf;
+        renderThumbnail(group.pdf,canvas).catch(error=>
+          console.warn("Could not restore original BEO preview:",error)
+        );
         updateEventsProgress();
         updatePortfolioSales();
         pasteZone.focus();
@@ -3437,7 +3443,7 @@
       additional.append(arHeader,scanLog,arResults);
 
       preview.addEventListener("click",()=>openPreview(
-        group.pdf,
+        group.previewPdf||group.pdf,
         p.fullTitle,
         p.opportunityId,
         group.recapPdf||null,
@@ -3448,6 +3454,7 @@
         contracted,
         subtotalCheck,
         opportunityFlag,
+        previewCanvas:canvas,
         pasteZone,
         replaceButton,
         scanLog,
@@ -3723,6 +3730,7 @@
           if(ui){
             renderAdditionalRevenue(ui.arResults,comparison);
             updateSubtotalCheck(ui.subtotalCheck,comparison);
+            await refreshEventPdfPreview(group);
 
             ui.contracted.open=false;
             ui.scanLog.replaceChildren();
@@ -3803,6 +3811,7 @@
 
         renderAdditionalRevenue(results,comparison);
         updateSubtotalCheck(subtotalCheck,comparison);
+        await refreshEventPdfPreview(group);
         updateEventsProgress();
         updatePortfolioSales();
 
@@ -5305,6 +5314,44 @@
       canvas.style.width=Math.floor(viewport.width)+"px";
       canvas.style.height=Math.floor(viewport.height)+"px";
       await page.render({canvasContext:ctx,viewport,transform:output!==1?[output,0,0,output,0,0]:null}).promise;
+    }
+
+    async function buildEventPreviewPdf(group){
+      if(
+        !group?.pdfBytes ||
+        !group?.parsed?.arProcessed ||
+        !group?.parsed?.arComparison
+      ){
+        return group?.pdf||null;
+      }
+
+      const pdfDoc=await PDFDocument.load(group.pdfBytes.slice());
+      const font=await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const bold=await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+      await drawEventARExport(pdfDoc,group,font,bold,0);
+
+      const bytes=await pdfDoc.save();
+      return pdfjsLib.getDocument({data:bytes.slice()}).promise;
+    }
+
+    async function refreshEventPdfPreview(group){
+      if(!group?.pdf)return;
+
+      try{
+        group.previewPdf=await buildEventPreviewPdf(group);
+
+        if(group?.ui?.previewCanvas&&group.previewPdf){
+          await renderThumbnail(group.previewPdf,group.ui.previewCanvas);
+        }
+      }catch(error){
+        console.warn("Could not refresh annotated BEO preview:",error);
+        group.previewPdf=group.pdf;
+
+        if(group?.ui?.previewCanvas){
+          await renderThumbnail(group.pdf,group.ui.previewCanvas);
+        }
+      }
     }
 
     async function openPreview(
