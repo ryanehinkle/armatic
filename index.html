@@ -125,6 +125,12 @@
     .entered-progress-text{color:#bfc6cf;font-size:.68rem;font-weight:850;font-variant-numeric:tabular-nums}
     .entered-progress-track{height:6px;overflow:hidden;border:1px solid #35404c;border-radius:999px;background:#242a31}
     .entered-progress-bar{width:0;height:100%;border-radius:999px;background:#5e93cc;transition:width .3s cubic-bezier(.2,.75,.25,1)}
+    .preview-entered-strip{position:fixed;z-index:1003;top:7px;left:50%;display:flex;align-items:center;justify-content:center;gap:10px;transform:translateX(-50%);pointer-events:auto}
+    .preview-entered-check{position:static;right:auto;top:auto;flex:0 0 auto;width:24px;height:24px}
+    .preview-entered-progress{display:flex;align-items:center;gap:7px}
+    .preview-entered-track{width:120px;height:6px;overflow:hidden;border:1px solid #35404c;border-radius:999px;background:#242a31}
+    .preview-entered-bar{width:0;height:100%;border-radius:999px;background:#5e93cc;transition:width .3s cubic-bezier(.2,.75,.25,1)}
+    .preview-entered-text{min-width:30px;color:#bfc6cf;font-size:.68rem;font-weight:850;font-variant-numeric:tabular-nums}
     .event-toast-link{color:inherit;text-decoration:none;cursor:pointer;transition:color .14s ease,text-shadow .14s ease}
     .event-toast-link:hover,.event-toast-link:focus-visible{color:#3f6f9f;text-shadow:0 0 10px rgba(63,111,159,.22)}
     .event-name{margin-top:7px;padding-right:38px;color:#fff;font-size:1.05rem;font-weight:850;line-height:1.2;overflow-wrap:anywhere}
@@ -391,6 +397,15 @@
   </div>
 
   <div id="pdfModal" class="pdf-modal" aria-hidden="true">
+    <div id="previewEnteredStrip" class="preview-entered-strip" aria-label="Entered progress">
+      <button id="previewEnteredCheck" class="event-entered-check preview-entered-check" type="button" aria-label="Mark event as entered"></button>
+      <div class="preview-entered-progress">
+        <div class="preview-entered-track">
+          <div id="previewEnteredBar" class="preview-entered-bar"></div>
+        </div>
+        <span id="previewEnteredText" class="preview-entered-text">0/0</span>
+      </div>
+    </div>
     <section class="preview-shell" role="dialog" aria-modal="true" aria-label="Event preview">
       <div class="preview-header">
         <div class="preview-side-title">
@@ -441,7 +456,7 @@
 
     const {PDFDocument,rgb,StandardFonts}=window.PDFLib;
     const $=(id)=>document.getElementById(id);
-    const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),recapPdfInput=$("recapPdfInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),saveSessionButton=$("saveSessionButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),gameUserFlag=$("gameUserFlag"),recapUploadButton=$("recapUploadButton"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),previewShell=document.querySelector(".preview-shell"),modalEventName=$("modalEventName"),modalEventToastLink=$("modalEventToastLink"),modalBody=$("modalBody"),recapPane=$("recapPane"),prevPage=$("prevPage"),nextPage=$("nextPage"),prevEvent=$("prevEvent"),nextEvent=$("nextEvent"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading"),recapCanvas=$("recapCanvas"),recapLoading=$("recapLoading");
+    const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),recapPdfInput=$("recapPdfInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),saveSessionButton=$("saveSessionButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),gameUserFlag=$("gameUserFlag"),recapUploadButton=$("recapUploadButton"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),previewShell=document.querySelector(".preview-shell"),previewEnteredStrip=$("previewEnteredStrip"),previewEnteredCheck=$("previewEnteredCheck"),previewEnteredBar=$("previewEnteredBar"),previewEnteredText=$("previewEnteredText"),modalEventName=$("modalEventName"),modalEventToastLink=$("modalEventToastLink"),modalBody=$("modalBody"),recapPane=$("recapPane"),prevPage=$("prevPage"),nextPage=$("nextPage"),prevEvent=$("prevEvent"),nextEvent=$("nextEvent"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading"),recapCanvas=$("recapCanvas"),recapLoading=$("recapLoading");
     const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
     const floatingTopgolfLogo=$("floatingTopgolfLogo");
     const landingCard=document.querySelector(".landing-card");
@@ -1923,11 +1938,44 @@
       return key?enteredEvents.has(key):false;
     }
 
+    function syncEnteredButton(button,entered){
+      if(!button)return;
+      button.classList.toggle("checked",entered);
+      button.setAttribute("aria-pressed",entered?"true":"false");
+      button.title=entered?"Entered — click to uncheck":"Mark event as entered";
+      button.setAttribute(
+        "aria-label",
+        entered?"Event entered. Click to uncheck.":"Mark event as entered"
+      );
+    }
+
+    function syncEventEnteredControls(eventCard,eventDate){
+      const key=eventEnteredKey(eventCard,eventDate);
+      if(!key)return;
+      const entered=enteredEvents.has(key);
+
+      document.querySelectorAll(".event-entered-check[data-entered-key]").forEach(button=>{
+        if(button.dataset.enteredKey===key)syncEnteredButton(button,entered);
+      });
+
+      if(
+        activePreviewGroupIndex>=0 &&
+        currentGroups[activePreviewGroupIndex] &&
+        eventEnteredKey(
+          currentGroups[activePreviewGroupIndex]?.parsed?.eventCard,
+          currentGroups[activePreviewGroupIndex]?.parsed?.date
+        )===key
+      ){
+        syncEnteredButton(previewEnteredCheck,entered);
+      }
+    }
+
     function setEventEntered(eventCard,eventDate,entered){
       const key=eventEnteredKey(eventCard,eventDate);
       if(!key)return;
       if(entered)enteredEvents.add(key);
       else enteredEvents.delete(key);
+      syncEventEnteredControls(eventCard,eventDate);
     }
 
     function updateEnteredProgress(){
@@ -1936,11 +1984,16 @@
         getEventEntered(group?.parsed?.eventCard,group?.parsed?.date)
       ).length;
 
+      const progressWidth=total?((checked/total)*100)+"%":"0%";
       enteredProgressText.textContent=checked+"/"+total;
-      enteredProgressBar.style.width=total?((checked/total)*100)+"%":"0%";
+      enteredProgressBar.style.width=progressWidth;
       enteredProgressFloat.classList.toggle("visible",checked>0&&total>0);
       enteredProgressFloat.setAttribute("aria-hidden",checked>0&&total>0?"false":"true");
       enteredProgressBar.title=checked+" of "+total+" events entered";
+
+      if(previewEnteredText)previewEnteredText.textContent=checked+"/"+total;
+      if(previewEnteredBar)previewEnteredBar.style.width=progressWidth;
+      if(previewEnteredBar)previewEnteredBar.title=checked+" of "+total+" events entered";
     }
 
     function extractFullEventTitle(lines){
@@ -3230,27 +3283,14 @@
       const enteredCheck=document.createElement("button");
       enteredCheck.type="button";
       enteredCheck.className="event-entered-check";
-      enteredCheck.title="Mark event as entered";
-      enteredCheck.setAttribute("aria-label","Mark event as entered");
-
-      const syncEnteredCheck=(entered)=>{
-        enteredCheck.classList.toggle("checked",entered);
-        enteredCheck.setAttribute("aria-pressed",entered?"true":"false");
-        enteredCheck.title=entered?"Entered — click to uncheck":"Mark event as entered";
-        enteredCheck.setAttribute(
-          "aria-label",
-          entered?"Event entered. Click to uncheck.":"Mark event as entered"
-        );
-      };
-
-      syncEnteredCheck(getEventEntered(p.eventCard,p.date));
+      enteredCheck.dataset.enteredKey=eventEnteredKey(p.eventCard,p.date)||"";
+      syncEnteredButton(enteredCheck,getEventEntered(p.eventCard,p.date));
 
       enteredCheck.addEventListener("click",(event)=>{
         event.preventDefault();
         event.stopPropagation();
-        const entered=!enteredCheck.classList.contains("checked");
+        const entered=!getEventEntered(p.eventCard,p.date);
         setEventEntered(p.eventCard,p.date,entered);
-        syncEnteredCheck(entered);
         updateEnteredProgress();
       });
 
@@ -5494,6 +5534,20 @@
       activePreviewRecapPdf=recapPdf;
       activePreviewRecapPage=Number.isInteger(recapPage)?recapPage:null;
       activePreviewGroupIndex=group?currentGroups.indexOf(group):-1;
+
+      if(group?.parsed){
+        const previewKey=eventEnteredKey(group.parsed.eventCard,group.parsed.date);
+        previewEnteredCheck.dataset.enteredKey=previewKey||"";
+        syncEnteredButton(
+          previewEnteredCheck,
+          getEventEntered(group.parsed.eventCard,group.parsed.date)
+        );
+      }else{
+        previewEnteredCheck.dataset.enteredKey="";
+        syncEnteredButton(previewEnteredCheck,false);
+      }
+      updateEnteredProgress();
+
       modalEventName.replaceChildren();
 
       const opportunityHref=opportunityUrl(opportunityId);
@@ -5674,7 +5728,27 @@
       if(recapRenderTask){try{recapRenderTask.cancel()}catch(_){}recapRenderTask=null}
     }
 
-    prevPage.addEventListener("click",()=>{if(activePreviewPdf&&activePreviewPage>1){activePreviewPage--;renderModalPage()}});
+    previewEnteredCheck.addEventListener("click",(event)=>{
+      event.preventDefault();
+      event.stopPropagation();
+
+      const group=currentGroups[activePreviewGroupIndex];
+      if(!group?.parsed)return;
+
+      const entered=!getEventEntered(
+        group.parsed.eventCard,
+        group.parsed.date
+      );
+
+      setEventEntered(
+        group.parsed.eventCard,
+        group.parsed.date,
+        entered
+      );
+      updateEnteredProgress();
+    });
+
+        prevPage.addEventListener("click",()=>{if(activePreviewPdf&&activePreviewPage>1){activePreviewPage--;renderModalPage()}});
     nextPage.addEventListener("click",()=>{if(activePreviewPdf&&activePreviewPage<activePreviewPdf.numPages){activePreviewPage++;renderModalPage()}});
 
     async function openAdjacentEvent(direction){
