@@ -236,6 +236,14 @@
     .recap-body{position:relative;display:grid;place-items:center;min-height:360px;padding:8px;background:#111114;overflow:auto}
     .modal-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 14px;border-bottom:1px solid #303036;background:#1b1b1f}
     .modal-event-name{max-width:min(62vw,680px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e9e9ed;font-size:.82rem;font-weight:800}
+    .modal-title-stack{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+    .modal-event-toast-link{color:#6f9fd1;font-size:.7rem;font-weight:850;text-decoration:none;line-height:1}
+    .modal-event-toast-link:hover,.modal-event-toast-link:focus-visible{color:#9fc4ec;text-shadow:0 0 10px rgba(111,159,209,.24)}
+    .event-nav-arrow{position:fixed;z-index:1002;top:50%;width:54px;height:92px;display:grid;place-items:center;border:0;background:transparent;color:#d7d7dc;font-size:4rem;font-weight:200;line-height:1;cursor:pointer;transform:translateY(-50%);opacity:.72;transition:opacity .15s ease,transform .15s ease,color .15s ease}
+    .event-nav-arrow:hover,.event-nav-arrow:focus-visible{opacity:1;color:#fff;transform:translateY(-50%) scale(1.06);outline:none}
+    .event-nav-arrow:disabled{opacity:.14;cursor:default;transform:translateY(-50%)}
+    .event-nav-prev{left:8px}
+    .event-nav-next{right:8px}
     .modal-controls{display:flex;align-items:center;gap:8px}
     .page-counter{color:#90909a;font-size:.75rem;font-weight:750}
     .modal-button{width:34px;height:34px;border:1px solid #3a3a42;border-radius:8px;background:#242429;color:#dedee4;font-size:1.1rem;cursor:pointer}
@@ -367,7 +375,10 @@
   <div id="pdfModal" class="pdf-modal" aria-hidden="true">
     <section class="modal-window" role="dialog" aria-modal="true" aria-label="Event BEO preview">
       <div class="modal-topbar">
-        <div id="modalEventName" class="modal-event-name">Event BEO</div>
+        <div class="modal-title-stack">
+          <div id="modalEventName" class="modal-event-name">Event BEO</div>
+          <a id="modalEventToastLink" class="modal-event-toast-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Event 0000</a>
+        </div>
         <div class="modal-controls">
           <button id="prevPage" class="modal-button" type="button" aria-label="Previous page">‹</button>
           <span id="pageCounter" class="page-counter">1 of 1</span>
@@ -392,6 +403,8 @@
         <canvas id="recapCanvas"></canvas>
       </div>
     </section>
+    <button id="prevEvent" class="event-nav-arrow event-nav-prev" type="button" aria-label="Previous event">‹</button>
+    <button id="nextEvent" class="event-nav-arrow event-nav-next" type="button" aria-label="Next event">›</button>
   </div>
 
 
@@ -403,7 +416,7 @@
 
     const {PDFDocument,rgb,StandardFonts}=window.PDFLib;
     const $=(id)=>document.getElementById(id);
-    const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),recapPdfInput=$("recapPdfInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),saveSessionButton=$("saveSessionButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),recapUploadButton=$("recapUploadButton"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),modalEventName=$("modalEventName"),modalBody=$("modalBody"),recapPane=$("recapPane"),prevPage=$("prevPage"),nextPage=$("nextPage"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading"),recapCanvas=$("recapCanvas"),recapLoading=$("recapLoading");
+    const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),recapPdfInput=$("recapPdfInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),saveSessionButton=$("saveSessionButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),recapUploadButton=$("recapUploadButton"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),modalEventName=$("modalEventName"),modalEventToastLink=$("modalEventToastLink"),modalBody=$("modalBody"),recapPane=$("recapPane"),prevPage=$("prevPage"),nextPage=$("nextPage"),prevEvent=$("prevEvent"),nextEvent=$("nextEvent"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading"),recapCanvas=$("recapCanvas"),recapLoading=$("recapLoading");
     const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
     const floatingTopgolfLogo=$("floatingTopgolfLogo");
     const landingCard=document.querySelector(".landing-card");
@@ -416,6 +429,7 @@
     let activePreviewPage=1;
     let activePreviewRecapPdf=null;
     let activePreviewRecapPage=null;
+    let activePreviewGroupIndex=-1;
     let modalRenderTask=null;
     let recapRenderTask=null;
     let currentSourceBytes=null;
@@ -3447,7 +3461,8 @@
         p.fullTitle,
         p.opportunityId,
         group.recapPdf||null,
-        group.recapPageNumber||null
+        group.recapPageNumber||null,
+        group
       ));
 
       group.ui={
@@ -5359,12 +5374,14 @@
       name,
       opportunityId=null,
       recapPdf=null,
-      recapPage=null
+      recapPage=null,
+      group=null
     ){
       activePreviewPdf=pdf;
       activePreviewPage=1;
       activePreviewRecapPdf=recapPdf;
       activePreviewRecapPage=Number.isInteger(recapPage)?recapPage:null;
+      activePreviewGroupIndex=group?currentGroups.indexOf(group):-1;
       modalEventName.replaceChildren();
 
       const opportunityHref=opportunityUrl(opportunityId);
@@ -5381,6 +5398,23 @@
       }else{
         modalEventName.textContent=name||"Event BEO";
       }
+
+      const eventCard=String(group?.parsed?.eventCard||"").trim();
+      const toastHref=toastEventReportUrl(eventCard,group?.parsed?.date);
+
+      if(eventCard&&toastHref){
+        modalEventToastLink.textContent="Event "+eventCard;
+        modalEventToastLink.href=toastHref;
+        modalEventToastLink.hidden=false;
+      }else{
+        modalEventToastLink.hidden=true;
+        modalEventToastLink.removeAttribute("href");
+      }
+
+      prevEvent.disabled=activePreviewGroupIndex<=0;
+      nextEvent.disabled=
+        activePreviewGroupIndex<0 ||
+        activePreviewGroupIndex>=currentGroups.length-1;
 
       const hasRecap=Boolean(
         activePreviewRecapPdf &&
@@ -5506,6 +5540,9 @@
       activePreviewPage=1;
       activePreviewRecapPdf=null;
       activePreviewRecapPage=null;
+      activePreviewGroupIndex=-1;
+      modalEventToastLink.hidden=true;
+      modalEventToastLink.removeAttribute("href");
       pdfModal.classList.remove("has-recap");
       recapPane.hidden=true;
       if(modalRenderTask){try{modalRenderTask.cancel()}catch(_){}modalRenderTask=null}
@@ -5514,11 +5551,32 @@
 
     prevPage.addEventListener("click",()=>{if(activePreviewPdf&&activePreviewPage>1){activePreviewPage--;renderModalPage()}});
     nextPage.addEventListener("click",()=>{if(activePreviewPdf&&activePreviewPage<activePreviewPdf.numPages){activePreviewPage++;renderModalPage()}});
+
+    async function openAdjacentEvent(direction){
+      if(activePreviewGroupIndex<0)return;
+      const targetIndex=activePreviewGroupIndex+direction;
+      if(targetIndex<0||targetIndex>=currentGroups.length)return;
+
+      const group=currentGroups[targetIndex];
+      await openPreview(
+        group.previewPdf||group.pdf,
+        group.parsed?.fullTitle||group.parsed?.name||"Event BEO",
+        group.parsed?.opportunityId||null,
+        group.recapPdf||null,
+        group.recapPageNumber||null,
+        group
+      );
+    }
+
+    prevEvent.addEventListener("click",()=>openAdjacentEvent(-1));
+    nextEvent.addEventListener("click",()=>openAdjacentEvent(1));
     modalClose.addEventListener("click",closePreview);
     pdfModal.addEventListener("click",e=>{if(e.target===pdfModal)closePreview()});
     document.addEventListener("keydown",e=>{
       if(!pdfModal.classList.contains("open"))return;
       if(e.key==="Escape")closePreview();
+      if(e.shiftKey&&e.key==="ArrowLeft"){openAdjacentEvent(-1);return}
+      if(e.shiftKey&&e.key==="ArrowRight"){openAdjacentEvent(1);return}
       if(e.key==="ArrowLeft"&&activePreviewPage>1){activePreviewPage--;renderModalPage()}
       if(e.key==="ArrowRight"&&activePreviewPdf&&activePreviewPage<activePreviewPdf.numPages){activePreviewPage++;renderModalPage()}
     });
