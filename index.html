@@ -225,15 +225,15 @@
     .ar-replace.visible{display:inline-block}
 
     .empty-events{display:none;padding:28px;border:1px dashed #34343b;border-radius:12px;color:#85858f;text-align:center}
-    .pdf-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;gap:16px;padding:24px;background:rgba(3,3,5,.76);backdrop-filter:blur(8px)}
+    .pdf-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;gap:12px;padding:10px;background:rgba(3,3,5,.76);backdrop-filter:blur(8px)}
     .pdf-modal.open{display:flex}
-    .modal-window{position:relative;width:max-content;max-width:98vw;max-height:94vh;display:flex;flex-direction:column;border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
-    .pdf-modal.has-recap .modal-window,.pdf-modal.has-recap .recap-window{width:min(46vw,720px);max-width:min(46vw,720px)}
-    .recap-window{position:relative;width:min(46vw,720px);max-height:94vh;display:flex;flex-direction:column;border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
+    .modal-window{position:relative;width:max-content;max-width:99vw;max-height:98vh;display:flex;flex-direction:column;border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
+    .pdf-modal.has-recap .modal-window,.pdf-modal.has-recap .recap-window{width:min(48.5vw,840px);max-width:min(48.5vw,840px)}
+    .recap-window{position:relative;width:min(48.5vw,840px);max-height:98vh;display:flex;flex-direction:column;border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
     .recap-window[hidden]{display:none}
     .recap-topbar{display:flex;align-items:center;min-height:48px;padding:11px 14px;border-bottom:1px solid #303036;background:#1b1b1f}
     .recap-title{color:#e9e9ed;font-size:.82rem;font-weight:800}
-    .recap-body{position:relative;display:grid;place-items:center;min-height:360px;padding:14px;background:#111114;overflow:auto}
+    .recap-body{position:relative;display:grid;place-items:center;min-height:360px;padding:8px;background:#111114;overflow:auto}
     .modal-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 14px;border-bottom:1px solid #303036;background:#1b1b1f}
     .modal-event-name{max-width:min(62vw,680px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e9e9ed;font-size:.82rem;font-weight:800}
     .modal-controls{display:flex;align-items:center;gap:8px}
@@ -241,10 +241,10 @@
     .modal-button{width:34px;height:34px;border:1px solid #3a3a42;border-radius:8px;background:#242429;color:#dedee4;font-size:1.1rem;cursor:pointer}
     .modal-button:disabled{opacity:.32;cursor:default}
     .modal-close{font-size:1.2rem}
-    .modal-body{position:relative;display:flex;align-items:center;justify-content:center;min-width:320px;min-height:360px;padding:14px;background:#111114;overflow:auto}
+    .modal-body{position:relative;display:flex;align-items:center;justify-content:center;min-width:320px;min-height:360px;padding:8px;background:#111114;overflow:auto}
     .modal-pane{position:relative;display:grid;place-items:center;min-width:0;max-width:88vw}
     .modal-pane-label{position:absolute;z-index:2;top:8px;left:8px;padding:4px 7px;border:1px solid rgba(0,0,0,.18);border-radius:6px;background:rgba(22,22,25,.82);color:#d7d7dc;font-size:.62rem;font-weight:900;letter-spacing:.055em;text-transform:uppercase;pointer-events:none;backdrop-filter:blur(5px)}
-    #modalCanvas,#recapCanvas{display:block;max-width:100%;max-height:78vh;background:#fff;box-shadow:0 5px 24px rgba(0,0,0,.36)}
+    #modalCanvas,#recapCanvas{display:block;max-width:100%;max-height:86vh;background:#fff;box-shadow:0 5px 24px rgba(0,0,0,.36)}
     .modal-loading{position:absolute;color:#81818b;font-size:.8rem}
     @media(max-width:900px){.pdf-modal{align-items:flex-start;flex-direction:column;justify-content:flex-start;overflow:auto}.pdf-modal.has-recap .modal-window,.recap-window{width:min(94vw,760px);max-width:94vw;margin:0 auto}#modalCanvas,#recapCanvas{max-height:72vh}}
     @media(max-width:1100px){.events-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.add-event-slot{grid-column:auto}.add-event-slot:nth-child(2n+1){grid-column:1/-1}}
@@ -5422,8 +5422,8 @@
       try{
         const page=await activePreviewPdf.getPage(activePreviewPage);
         const base=page.getViewport({scale:1});
-        const widthLimit=sideBySide?innerWidth*.42:innerWidth*.82;
-        const heightLimit=innerHeight*.73;
+        const widthLimit=sideBySide?innerWidth*.47:innerWidth*.90;
+        const heightLimit=innerHeight*.84;
         const scale=Math.min(widthLimit/base.width,heightLimit/base.height,1.7);
         const viewport=page.getViewport({scale});
         const output=Math.min(devicePixelRatio||1,2);
@@ -5471,8 +5471,8 @@
       try{
         const page=await activePreviewRecapPdf.getPage(activePreviewRecapPage);
         const base=page.getViewport({scale:1});
-        const widthLimit=innerWidth>900?innerWidth*.42:innerWidth*.82;
-        const heightLimit=innerHeight*.73;
+        const widthLimit=innerWidth>900?innerWidth*.47:innerWidth*.90;
+        const heightLimit=innerHeight*.84;
         const scale=Math.min(widthLimit/base.width,heightLimit/base.height,1.7);
         const viewport=page.getViewport({scale});
         const output=Math.min(devicePixelRatio||1,2);
