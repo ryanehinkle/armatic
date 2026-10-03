@@ -227,24 +227,24 @@
     .empty-events{display:none;padding:28px;border:1px dashed #34343b;border-radius:12px;color:#85858f;text-align:center}
     .pdf-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;gap:12px;padding:10px;background:rgba(3,3,5,.76);backdrop-filter:blur(8px)}
     .pdf-modal.open{display:flex}
-    .modal-window{position:relative;width:max-content;max-width:99vw;max-height:98vh;display:flex;flex-direction:column;border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
-    .pdf-modal.has-recap .modal-window,.pdf-modal.has-recap .recap-window{width:min(48.5vw,840px);max-width:min(48.5vw,840px)}
-    .recap-window{position:relative;width:min(48.5vw,840px);max-height:98vh;display:flex;flex-direction:column;border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
-    .recap-window[hidden]{display:none}
-    .recap-topbar{display:flex;align-items:center;min-height:48px;padding:11px 14px;border-bottom:1px solid #303036;background:#1b1b1f}
-    .recap-title{color:#e9e9ed;font-size:.82rem;font-weight:800}
-    .recap-body{position:relative;display:grid;place-items:center;min-height:360px;padding:8px;background:#111114;overflow:auto}
-    .modal-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 14px;border-bottom:1px solid #303036;background:#1b1b1f}
-    .modal-event-name{max-width:min(62vw,680px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e9e9ed;font-size:.82rem;font-weight:800}
-    .modal-title-stack{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+    .preview-shell{position:relative;width:min(96vw,1680px);max-height:98vh;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
+    .preview-header{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch;border-bottom:1px solid #303036;background:#1b1b1f}
+    .preview-side-title{position:relative;min-width:0;display:flex;align-items:center;justify-content:center;padding:10px 48px;text-align:center}
+    .preview-side-title:first-child{border-right:1px solid #303036}
+    .preview-side-title .modal-title-stack{min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px}
+    .modal-event-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e9e9ed;font-size:.82rem;font-weight:800}
     .modal-event-toast-link{color:#6f9fd1;font-size:.7rem;font-weight:850;text-decoration:none;line-height:1}
     .modal-event-toast-link:hover,.modal-event-toast-link:focus-visible{color:#9fc4ec;text-shadow:0 0 10px rgba(111,159,209,.24)}
+    .recap-title{color:#e9e9ed;font-size:.82rem;font-weight:800}
+    .preview-close{position:absolute;z-index:4;top:8px;right:10px}
+    .preview-column{position:relative;min-width:0;display:flex;flex-direction:column;background:#111114;overflow:hidden}
+    .preview-column:first-of-type{border-right:1px solid #303036}
+    .modal-body,.recap-body{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:360px;padding:8px;background:#111114;overflow:auto}
     .event-nav-arrow{position:fixed;z-index:1002;top:50%;width:54px;height:92px;display:grid;place-items:center;border:0;background:transparent;color:#d7d7dc;font-size:4rem;font-weight:200;line-height:1;cursor:pointer;transform:translateY(-50%);opacity:.72;transition:opacity .15s ease,transform .15s ease,color .15s ease}
     .event-nav-arrow:hover,.event-nav-arrow:focus-visible{opacity:1;color:#fff;transform:translateY(-50%) scale(1.06);outline:none}
     .event-nav-arrow:disabled{opacity:.14;cursor:default;transform:translateY(-50%)}
     .event-nav-prev{left:8px}
     .event-nav-next{right:8px}
-    .modal-controls{display:flex;align-items:center;gap:8px}
     .page-counter{color:#90909a;font-size:.75rem;font-weight:750}
     .modal-button{width:34px;height:34px;border:1px solid #3a3a42;border-radius:8px;background:#242429;color:#dedee4;font-size:1.1rem;cursor:pointer}
     .modal-button:disabled{opacity:.32;cursor:default}
@@ -254,7 +254,7 @@
     .modal-pane-label{position:absolute;z-index:2;top:8px;left:8px;padding:4px 7px;border:1px solid rgba(0,0,0,.18);border-radius:6px;background:rgba(22,22,25,.82);color:#d7d7dc;font-size:.62rem;font-weight:900;letter-spacing:.055em;text-transform:uppercase;pointer-events:none;backdrop-filter:blur(5px)}
     #modalCanvas,#recapCanvas{display:block;max-width:100%;max-height:86vh;background:#fff;box-shadow:0 5px 24px rgba(0,0,0,.36)}
     .modal-loading{position:absolute;color:#81818b;font-size:.8rem}
-    @media(max-width:900px){.pdf-modal{align-items:flex-start;flex-direction:column;justify-content:flex-start;overflow:auto}.pdf-modal.has-recap .modal-window,.recap-window{width:min(94vw,760px);max-width:94vw;margin:0 auto}#modalCanvas,#recapCanvas{max-height:72vh}}
+    @media(max-width:900px){.pdf-modal{align-items:flex-start;justify-content:flex-start;overflow:auto}.preview-shell{width:94vw;grid-template-columns:1fr;grid-template-rows:auto auto auto}.preview-header{grid-template-columns:1fr}.preview-side-title:first-child{border-right:0;border-bottom:1px solid #303036}.preview-column:first-of-type{border-right:0;border-bottom:1px solid #303036}#modalCanvas,#recapCanvas{max-height:72vh}}
     @media(max-width:1100px){.events-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.add-event-slot{grid-column:auto}.add-event-slot:nth-child(2n+1){grid-column:1/-1}}
     @media(max-width:900px){.events-head{grid-template-columns:1fr auto;gap:14px}.portfolio-sales{grid-column:1/-1;grid-row:1;min-width:0}.events-title-group{grid-column:1;grid-row:2}.events-actions{grid-column:2;grid-row:2}}
     @media(max-width:700px){.events-grid{grid-template-columns:1fr}.add-event-slot{grid-column:1}.event-preview{height:220px}.events-head{grid-template-columns:1fr;align-items:center}.portfolio-sales,.events-title-group,.events-actions{grid-column:1;justify-self:center}.portfolio-sales{grid-row:1}.events-title-group{grid-row:2;width:100%;justify-content:center}.events-actions{grid-row:3;width:100%;justify-content:center}.events-progress{min-width:0}.events-progress-track{width:90px}}
@@ -373,36 +373,43 @@
   </div>
 
   <div id="pdfModal" class="pdf-modal" aria-hidden="true">
-    <section class="modal-window" role="dialog" aria-modal="true" aria-label="Event BEO preview">
-      <div class="modal-topbar">
-        <div class="modal-title-stack">
-          <div id="modalEventName" class="modal-event-name">Event BEO</div>
-          <a id="modalEventToastLink" class="modal-event-toast-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Event 0000</a>
+    <section class="preview-shell" role="dialog" aria-modal="true" aria-label="Event preview">
+      <div class="preview-header">
+        <div class="preview-side-title">
+          <div class="modal-title-stack">
+            <div id="modalEventName" class="modal-event-name">Event BEO</div>
+            <a id="modalEventToastLink" class="modal-event-toast-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Event 0000</a>
+          </div>
         </div>
-        <div class="modal-controls">
+        <div class="preview-side-title">
+          <div class="recap-title">Event Recap</div>
+        </div>
+      </div>
+
+      <button id="modalClose" class="modal-button modal-close preview-close" type="button" aria-label="Close preview">×</button>
+
+      <div class="preview-column">
+        <div class="modal-controls" style="position:absolute;z-index:3;top:8px;right:10px;display:flex;align-items:center;gap:8px">
           <button id="prevPage" class="modal-button" type="button" aria-label="Previous page">‹</button>
           <span id="pageCounter" class="page-counter">1 of 1</span>
           <button id="nextPage" class="modal-button" type="button" aria-label="Next page">›</button>
-          <button id="modalClose" class="modal-button modal-close" type="button" aria-label="Close preview">×</button>
+        </div>
+        <div id="modalBody" class="modal-body">
+          <div id="beoPane" class="modal-pane beo-pane">
+            <div id="modalLoading" class="modal-loading">Loading page…</div>
+            <canvas id="modalCanvas"></canvas>
+          </div>
         </div>
       </div>
-      <div id="modalBody" class="modal-body">
-        <div id="beoPane" class="modal-pane beo-pane">
-          <div id="modalLoading" class="modal-loading">Loading page…</div>
-          <canvas id="modalCanvas"></canvas>
+
+      <div id="recapPane" class="preview-column" aria-label="Event recap preview">
+        <div class="recap-body">
+          <div id="recapLoading" class="modal-loading">Loading recap…</div>
+          <canvas id="recapCanvas"></canvas>
         </div>
       </div>
     </section>
 
-    <section id="recapPane" class="recap-window" aria-label="Event recap preview" hidden>
-      <div class="recap-topbar">
-        <div class="recap-title">Event Recap</div>
-      </div>
-      <div class="recap-body">
-        <div id="recapLoading" class="modal-loading">Loading recap…</div>
-        <canvas id="recapCanvas"></canvas>
-      </div>
-    </section>
     <button id="prevEvent" class="event-nav-arrow event-nav-prev" type="button" aria-label="Previous event">‹</button>
     <button id="nextEvent" class="event-nav-arrow event-nav-next" type="button" aria-label="Next event">›</button>
   </div>
@@ -5492,7 +5499,7 @@
       );
 
       pdfModal.classList.toggle("has-recap",hasRecap);
-      recapPane.hidden=!hasRecap;
+      recapPane.style.display=hasRecap?"flex":"none";
       pdfModal.classList.add("open");
       pdfModal.setAttribute("aria-hidden","false");
       document.body.style.overflow="hidden";
@@ -5624,7 +5631,7 @@
       modalEventToastLink.hidden=true;
       modalEventToastLink.removeAttribute("href");
       pdfModal.classList.remove("has-recap");
-      recapPane.hidden=true;
+      recapPane.style.display="none";
       if(modalRenderTask){try{modalRenderTask.cancel()}catch(_){}modalRenderTask=null}
       if(recapRenderTask){try{recapRenderTask.cancel()}catch(_){}recapRenderTask=null}
     }
