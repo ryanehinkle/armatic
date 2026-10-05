@@ -260,7 +260,8 @@
     .preview-column:first-of-type{border-right:1px solid #303036}
     .modal-controls{position:absolute;z-index:3;top:13px;left:50%;display:flex;align-items:center;gap:8px;transform:translateX(-50%)}
     .modal-body,.recap-body{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:360px;padding:8px;background:#111114;overflow:auto}
-    .modal-body{padding-top:50px}
+    .modal-body,.recap-body{padding-top:50px}
+    .recap-controls{top:13px}
     .event-nav-arrow{position:fixed;z-index:1002;top:50%;width:54px;height:92px;display:grid;place-items:center;border:0;background:transparent;color:#d7d7dc;font-size:4rem;font-weight:200;line-height:1;cursor:pointer;transform:translateY(-50%);opacity:.72;transition:opacity .15s ease,transform .15s ease,color .15s ease}
     .event-nav-arrow:hover,.event-nav-arrow:focus-visible{opacity:1;color:#fff;transform:translateY(-50%) scale(1.06);outline:none}
     .event-nav-arrow:disabled{opacity:.14;cursor:default;transform:translateY(-50%)}
@@ -436,6 +437,11 @@
       </div>
 
       <div id="recapPane" class="preview-column" aria-label="Event recap preview">
+        <div class="modal-controls recap-controls">
+          <button id="prevRecapPage" class="modal-button" type="button" aria-label="Previous recap page">‹</button>
+          <span id="recapPageCounter" class="page-counter">1 of 1</span>
+          <button id="nextRecapPage" class="modal-button" type="button" aria-label="Next recap page">›</button>
+        </div>
         <div class="recap-body">
           <div id="recapLoading" class="modal-loading">Loading recap…</div>
           <canvas id="recapCanvas"></canvas>
@@ -456,7 +462,7 @@
 
     const {PDFDocument,rgb,StandardFonts}=window.PDFLib;
     const $=(id)=>document.getElementById(id);
-    const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),recapPdfInput=$("recapPdfInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),saveSessionButton=$("saveSessionButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),gameUserFlag=$("gameUserFlag"),recapUploadButton=$("recapUploadButton"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),previewShell=document.querySelector(".preview-shell"),previewEnteredStrip=$("previewEnteredStrip"),previewEnteredCheck=$("previewEnteredCheck"),previewEnteredBar=$("previewEnteredBar"),previewEnteredText=$("previewEnteredText"),modalEventName=$("modalEventName"),modalEventToastLink=$("modalEventToastLink"),modalBody=$("modalBody"),recapPane=$("recapPane"),prevPage=$("prevPage"),nextPage=$("nextPage"),prevEvent=$("prevEvent"),nextEvent=$("nextEvent"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading"),recapCanvas=$("recapCanvas"),recapLoading=$("recapLoading");
+    const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),recapPdfInput=$("recapPdfInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),saveSessionButton=$("saveSessionButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),gameUserFlag=$("gameUserFlag"),recapUploadButton=$("recapUploadButton"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),previewShell=document.querySelector(".preview-shell"),previewEnteredStrip=$("previewEnteredStrip"),previewEnteredCheck=$("previewEnteredCheck"),previewEnteredBar=$("previewEnteredBar"),previewEnteredText=$("previewEnteredText"),modalEventName=$("modalEventName"),modalEventToastLink=$("modalEventToastLink"),modalBody=$("modalBody"),recapPane=$("recapPane"),prevPage=$("prevPage"),nextPage=$("nextPage"),prevRecapPage=$("prevRecapPage"),nextRecapPage=$("nextRecapPage"),recapPageCounter=$("recapPageCounter"),prevEvent=$("prevEvent"),nextEvent=$("nextEvent"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading"),recapCanvas=$("recapCanvas"),recapLoading=$("recapLoading");
     const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
     const floatingTopgolfLogo=$("floatingTopgolfLogo");
     const landingCard=document.querySelector(".landing-card");
@@ -469,6 +475,8 @@
     let activePreviewPage=1;
     let activePreviewRecapPdf=null;
     let activePreviewRecapPage=null;
+    let activePreviewRecapPages=[];
+    let activePreviewRecapPageIndex=0;
     let activePreviewGroupIndex=-1;
     let modalRenderTask=null;
     let recapRenderTask=null;
@@ -1192,6 +1200,9 @@
               Number.isInteger(group.recapPageNumber)
                 ?group.recapPageNumber
                 :null,
+            recapPageNumbers:Array.isArray(group.recapPageNumbers)
+              ?group.recapPageNumbers.filter(Number.isInteger)
+              :(Number.isInteger(group.recapPageNumber)?[group.recapPageNumber]:[]),
             ui:captureGroupUi(group)
           }))
         };
@@ -1308,13 +1319,19 @@
               null,
             opportunityDetected:Boolean(savedGroup.opportunityDetected),
             recapPdf:
-              currentRecapPdfJs&&Number.isInteger(savedGroup.recapPageNumber)
+              currentRecapPdfJs&&(
+                Number.isInteger(savedGroup.recapPageNumber) ||
+                (Array.isArray(savedGroup.recapPageNumbers)&&savedGroup.recapPageNumbers.length)
+              )
                 ?currentRecapPdfJs
                 :null,
             recapPageNumber:
               Number.isInteger(savedGroup.recapPageNumber)
                 ?savedGroup.recapPageNumber
-                :null
+                :(Array.isArray(savedGroup.recapPageNumbers)&&Number.isInteger(savedGroup.recapPageNumbers[0])?savedGroup.recapPageNumbers[0]:null),
+            recapPageNumbers:Array.isArray(savedGroup.recapPageNumbers)
+              ?savedGroup.recapPageNumbers.filter(Number.isInteger)
+              :(Number.isInteger(savedGroup.recapPageNumber)?[savedGroup.recapPageNumber]:[])
           };
 
           if(group.parsed){
@@ -1606,7 +1623,7 @@
       // Only inspect the blank top-margin area above the printed "Event Recap"
       // heading. The earlier 72px band reached far enough down to let normal
       // form/title variation look like handwriting on noisy scans.
-      const roiHeight=Math.min(58,canvas.height);
+      const roiHeight=Math.min(96,canvas.height);
       const pixels=ctx.getImageData(0,0,width,roiHeight).data;
 
       // First pass: only keep genuinely dark pixels that are not part of the
@@ -1616,10 +1633,11 @@
 
       for(let y=0;y<roiHeight;y++){
         for(let x=45;x<555;x++){
+          if(y>=58&&x>=205&&x<=395)continue;
           const i=(y*width+x)*4;
           const gray=(pixels[i]+pixels[i+1]+pixels[i+2])/3;
 
-          if(gray>=125||opportunityTemplateCovers(x,y))continue;
+          if(gray>=145||opportunityTemplateCovers(x,y))continue;
           candidate[y*width+x]=1;
         }
       }
@@ -1682,6 +1700,7 @@
               const ny=y+dy;
 
               if(nx<45||nx>=555||ny<0||ny>=roiHeight)continue;
+              if(ny>=58&&nx>=205&&nx<=395)continue;
 
               const ni=ny*width+nx;
               if(!filtered[ni]||visited[ni])continue;
@@ -1753,13 +1772,78 @@
       flag.setAttribute("aria-hidden",detected?"false":"true");
     }
 
+    async function renderRecapClassificationCanvas(page){
+      const base=page.getViewport({scale:1});
+      const width=900;
+      const viewport=page.getViewport({scale:width/base.width});
+      const canvas=document.createElement("canvas");
+      const ctx=canvas.getContext("2d",{willReadFrequently:true});
+      canvas.width=width;
+      canvas.height=Math.max(1,Math.round(viewport.height));
+      await page.render({canvasContext:ctx,viewport}).promise;
+      return canvas;
+    }
+
+    function recapCanvasHasMeaningfulInk(canvas){
+      const ctx=canvas.getContext("2d",{willReadFrequently:true});
+      const w=canvas.width,h=canvas.height,p=ctx.getImageData(0,0,w,h).data;
+      let dark=0,veryDark=0;
+      for(let y=Math.floor(h*.04);y<h*.96;y+=2){
+        for(let x=Math.floor(w*.05);x<w*.95;x+=2){
+          const i=(y*w+x)*4;
+          const gray=(p[i]+p[i+1]+p[i+2])/3;
+          if(gray<185)dark++;
+          if(gray<115)veryDark++;
+        }
+      }
+      return veryDark>=22||dark>=75;
+    }
+
+    async function recognizeRecapHeader(canvas){
+      const header=document.createElement("canvas");
+      const hh=Math.max(1,Math.floor(canvas.height*.28));
+      header.width=canvas.width;
+      header.height=hh;
+      header.getContext("2d",{willReadFrequently:true})
+        .drawImage(canvas,0,0,canvas.width,hh,0,0,header.width,header.height);
+      const Tesseract=await ensureTesseract();
+      const result=await Tesseract.recognize(header,"eng",{
+        workerPath:"https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/worker.min.js",
+        corePath:"https://unpkg.com/tesseract.js-core@5.1.1",
+        langPath:"https://tessdata.projectnaptha.com/4.0.0",
+        workerBlobURL:false,
+        gzip:true
+      });
+      return clean(result?.data?.text||"");
+    }
+
+    async function classifyRecapPage(pdf,pageNumber){
+      const page=await pdf.getPage(pageNumber);
+      try{
+        const tc=await page.getTextContent();
+        const embedded=clean((tc?.items||[]).map(item=>item.str||"").join(" "));
+        if(/event\s*recap/i.test(embedded)&&/event\s*information/i.test(embedded)){
+          return{pageNumber,isFront:true,hasContent:true,text:embedded};
+        }
+      }catch(_){}
+
+      const canvas=await renderRecapClassificationCanvas(page);
+      const hasContent=recapCanvasHasMeaningfulInk(canvas);
+      let text="";
+      try{text=await recognizeRecapHeader(canvas)}
+      catch(error){console.warn("Recap header OCR failed for page "+pageNumber,error)}
+      const normalized=text.toLowerCase().replace(/[^a-z0-9]+/g," ");
+      return{
+        pageNumber,
+        isFront:/event\s+recap/.test(normalized)&&/event\s+information/.test(normalized),
+        hasContent,
+        text
+      };
+    }
+
     async function processRecapPdf(file){
       if(!file||!currentGroups.length)return;
-
-      if(
-        file.type!=="application/pdf" &&
-        !file.name.toLowerCase().endsWith(".pdf")
-      ){
+      if(file.type!=="application/pdf"&&!file.name.toLowerCase().endsWith(".pdf")){
         alert("Please upload the recap packet as a PDF.");
         return;
       }
@@ -1774,53 +1858,68 @@
         currentRecapBytes=bytes.slice();
         currentRecapPdfJs=recapPdf;
 
-        const linked=Math.min(recapPdf.numPages,currentGroups.length);
-        let opportunities=0;
+        const classified=[];
+        for(let pageNumber=1;pageNumber<=recapPdf.numPages;pageNumber++){
+          recapUploadButton.textContent="Scanning Recaps "+pageNumber+"/"+recapPdf.numPages+"…";
+          classified.push(await classifyRecapPage(recapPdf,pageNumber));
+        }
 
-        recapUploadButton.textContent="Scanning Recaps…";
+        const recapSets=[];
+        let current=null;
+        for(const info of classified){
+          if(info.isFront||!current){
+            current={pages:[info.pageNumber],front:info.pageNumber};
+            recapSets.push(current);
+          }else if(info.hasContent){
+            current.pages.push(info.pageNumber);
+          }
+        }
+
+        const linked=Math.min(recapSets.length,currentGroups.length);
+        let opportunities=0;
+        let backSides=0;
 
         for(let index=0;index<currentGroups.length;index++){
           const group=currentGroups[index];
-
-          if(index<recapPdf.numPages){
+          const set=recapSets[index]||null;
+          if(set){
             group.recapPdf=recapPdf;
-            group.recapPageNumber=index+1;
-
+            group.recapPageNumbers=set.pages.slice();
+            group.recapPageNumber=set.pages[0]||null;
+            backSides+=Math.max(0,set.pages.length-1);
             try{
-              group.opportunityDetected=await detectOpportunityMark(
-                recapPdf,
-                index+1
-              );
+              group.opportunityDetected=await detectOpportunityMark(recapPdf,set.front);
             }catch(error){
-              console.warn("Opportunity scan failed for recap page "+(index+1),error);
+              console.warn("Opportunity scan failed for recap page "+set.front,error);
               group.opportunityDetected=false;
             }
           }else{
             group.recapPdf=null;
+            group.recapPageNumbers=[];
             group.recapPageNumber=null;
             group.opportunityDetected=false;
           }
-
           if(group.opportunityDetected)opportunities++;
           syncOpportunityFlag(group);
         }
 
         recapUploadButton.title=
-          linked+" of "+currentGroups.length+
-          " events linked to recap pages by order · "+
+          linked+" of "+currentGroups.length+" events linked by recap fronts · "+
+          backSides+" back "+(backSides===1?"side":"s")+" · "+
           opportunities+" opportunities detected";
 
-        if(recapPdf.numPages===currentGroups.length){
+        await terminalMessage(
+          "Linked "+linked+" recap"+(linked===1?"":"s")+" to "+currentGroups.length+
+          " events by order"+
+          (backSides?" · "+backSides+" back "+(backSides===1?"side":"s")+" attached":"")+
+          " · "+opportunities+" opportunities detected.",
+          linked===currentGroups.length?"success":"muted"
+        );
+
+        if(recapSets.length!==currentGroups.length){
           await terminalMessage(
-            "Linked "+linked+" recap pages to "+currentGroups.length+
-            " events by order · "+opportunities+" opportunities detected.",
-            "success"
-          );
-        }else{
-          await terminalMessage(
-            "Recap packet has "+recapPdf.numPages+" pages for "+currentGroups.length+
-            " events; linked the first "+linked+" by order · "+
-            opportunities+" opportunities detected.",
+            "Detected "+recapSets.length+" recap front page"+(recapSets.length===1?"":"s")+
+            " for "+currentGroups.length+" events.",
             "muted"
           );
         }
@@ -3542,7 +3641,7 @@
         p.fullTitle,
         p.opportunityId,
         group.recapPdf||null,
-        group.recapPageNumber||null,
+        group.recapPageNumbers?.length?group.recapPageNumbers:(group.recapPageNumber||null),
         group
       ));
 
@@ -5501,21 +5600,24 @@
     async function preloadEventPreview(group){
       if(!group?.previewPdf&&!group?.pdf)return;
       const pdf=group.previewPdf||group.pdf;
-      const sideBySide=Boolean(group.recapPdf&&group.recapPageNumber&&innerWidth>900);
+      const recapPages=Array.isArray(group.recapPageNumbers)&&group.recapPageNumbers.length
+        ?group.recapPageNumbers
+        :(group.recapPageNumber?[group.recapPageNumber]:[]);
+      const sideBySide=Boolean(group.recapPdf&&recapPages.length&&innerWidth>900);
       const widthLimit=sideBySide?innerWidth*.47:innerWidth*.90;
       const heightLimit=innerHeight*.84;
 
       const jobs=[getCachedPreviewBitmap(pdf,1,widthLimit,heightLimit)];
 
-      if(group.recapPdf&&group.recapPageNumber){
-        jobs.push(
-          getCachedPreviewBitmap(
+      if(group.recapPdf&&recapPages.length){
+        for(const recapPage of recapPages.slice(0,2)){
+          jobs.push(getCachedPreviewBitmap(
             group.recapPdf,
-            group.recapPageNumber,
+            recapPage,
             innerWidth>900?innerWidth*.47:innerWidth*.90,
             innerHeight*.84
-          )
-        );
+          ));
+        }
       }
 
       await Promise.allSettled(jobs);
@@ -5526,13 +5628,17 @@
       name,
       opportunityId=null,
       recapPdf=null,
-      recapPage=null,
+      recapPages=null,
       group=null
     ){
       activePreviewPdf=pdf;
       activePreviewPage=1;
       activePreviewRecapPdf=recapPdf;
-      activePreviewRecapPage=Number.isInteger(recapPage)?recapPage:null;
+      activePreviewRecapPages=Array.isArray(recapPages)
+        ?recapPages.filter(Number.isInteger)
+        :(Number.isInteger(recapPages)?[recapPages]:[]);
+      activePreviewRecapPageIndex=0;
+      activePreviewRecapPage=activePreviewRecapPages[0]||null;
       activePreviewGroupIndex=group?currentGroups.indexOf(group):-1;
 
       if(group?.parsed){
@@ -5584,6 +5690,7 @@
 
       const hasRecap=Boolean(
         activePreviewRecapPdf &&
+        activePreviewRecapPages.length &&
         activePreviewRecapPage &&
         activePreviewRecapPage<=activePreviewRecapPdf.numPages
       );
@@ -5668,6 +5775,13 @@
     }
 
     async function renderRecapPreview(){
+      activePreviewRecapPage=activePreviewRecapPages[activePreviewRecapPageIndex]||null;
+      prevRecapPage.disabled=activePreviewRecapPageIndex<=0;
+      nextRecapPage.disabled=activePreviewRecapPageIndex>=activePreviewRecapPages.length-1;
+      recapPageCounter.textContent=activePreviewRecapPages.length
+        ?(activePreviewRecapPageIndex+1)+" of "+activePreviewRecapPages.length
+        :"0 of 0";
+
       if(
         !activePreviewRecapPdf ||
         !activePreviewRecapPage ||
@@ -5718,6 +5832,8 @@
       activePreviewPage=1;
       activePreviewRecapPdf=null;
       activePreviewRecapPage=null;
+      activePreviewRecapPages=[];
+      activePreviewRecapPageIndex=0;
       activePreviewGroupIndex=-1;
       modalEventToastLink.hidden=true;
       modalEventToastLink.removeAttribute("href");
@@ -5762,10 +5878,21 @@
         group.parsed?.fullTitle||group.parsed?.name||"Event BEO",
         group.parsed?.opportunityId||null,
         group.recapPdf||null,
-        group.recapPageNumber||null,
+        group.recapPageNumbers?.length?group.recapPageNumbers:(group.recapPageNumber||null),
         group
       );
     }
+
+    prevRecapPage.addEventListener("click",()=>{
+      if(activePreviewRecapPageIndex<=0)return;
+      activePreviewRecapPageIndex--;
+      renderRecapPreview();
+    });
+    nextRecapPage.addEventListener("click",()=>{
+      if(activePreviewRecapPageIndex>=activePreviewRecapPages.length-1)return;
+      activePreviewRecapPageIndex++;
+      renderRecapPreview();
+    });
 
     prevEvent.addEventListener("click",()=>openAdjacentEvent(-1));
     nextEvent.addEventListener("click",()=>openAdjacentEvent(1));
