@@ -1630,16 +1630,34 @@
       // known printed recap template. A stricter darkness cutoff keeps faint
       // scanner haze / dust from ever entering the detector.
       const candidate=new Uint8Array(width*roiHeight);
+      let coloredInk=0;
+      let coloredRows=0;
 
       for(let y=0;y<roiHeight;y++){
+        let rowColored=0;
         for(let x=45;x<555;x++){
           if(y>=58&&x>=205&&x<=395)continue;
           const i=(y*width+x)*4;
-          const gray=(pixels[i]+pixels[i+1]+pixels[i+2])/3;
+          const r=pixels[i],g=pixels[i+1],b=pixels[i+2];
+          const gray=(r+g+b)/3;
+          const max=Math.max(r,g,b);
+          const min=Math.min(r,g,b);
+          const chroma=max-min;
 
-          if(gray>=145||opportunityTemplateCovers(x,y))continue;
+          // The supplied missed marks are green/teal handwritten stars and
+          // numbers. Printed recap ink is essentially grayscale, so meaningful
+          // colored pen strokes in these blank header corners are a very strong
+          // signal and should not depend on the darker black-ink threshold.
+          if(chroma>=24&&max<235){
+            coloredInk++;
+            rowColored++;
+          }
+
+          if(gray>=165||opportunityTemplateCovers(x,y))continue;
           candidate[y*width+x]=1;
         }
+
+        if(rowColored>=3)coloredRows++;
       }
 
       // Second pass: remove salt-and-pepper scan noise. A real pen stroke has
@@ -1756,10 +1774,12 @@
       // substantial amount of connected ink. This keeps genuine stars/checks/
       // writing detectable while being much harder for scan noise to trigger.
       return(
+        coloredInk>=18 ||
+        coloredRows>=4 ||
         strongComponents>=1 ||
         mediumComponents>=2 ||
-        totalValidInk>=105 ||
-        largestValid>=68
+        totalValidInk>=90 ||
+        largestValid>=58
       );
     }
 
@@ -1817,6 +1837,27 @@
       return clean(result?.data?.text||"");
     }
 
+    function recapCanvasLooksLikeFront(canvas){
+      const ctx=canvas.getContext("2d",{willReadFrequently:true});
+      const w=canvas.width,h=canvas.height;
+      const p=ctx.getImageData(0,0,w,h).data;
+
+      let dark=0;
+      let sampled=0;
+      // Front forms have dense printed structure throughout most of the page;
+      // a backside is mostly white with only handwriting.
+      for(let y=Math.floor(h*.04);y<h*.93;y+=4){
+        for(let x=Math.floor(w*.06);x<w*.94;x+=4){
+          const i=(y*w+x)*4;
+          const gray=(p[i]+p[i+1]+p[i+2])/3;
+          sampled++;
+          if(gray<175)dark++;
+        }
+      }
+      const density=sampled?dark/sampled:0;
+      return density>=0.038;
+    }
+
     async function classifyRecapPage(pdf,pageNumber){
       const page=await pdf.getPage(pageNumber);
       try{
@@ -1829,13 +1870,18 @@
 
       const canvas=await renderRecapClassificationCanvas(page);
       const hasContent=recapCanvasHasMeaningfulInk(canvas);
+      const looksLikeFront=recapCanvasLooksLikeFront(canvas);
       let text="";
       try{text=await recognizeRecapHeader(canvas)}
       catch(error){console.warn("Recap header OCR failed for page "+pageNumber,error)}
       const normalized=text.toLowerCase().replace(/[^a-z0-9]+/g," ");
+      const ocrFront=
+        /event\s+recap/.test(normalized)&&
+        /event\s+information/.test(normalized);
+
       return{
         pageNumber,
-        isFront:/event\s+recap/.test(normalized)&&/event\s+information/.test(normalized),
+        isFront:ocrFront||looksLikeFront,
         hasContent,
         text
       };
@@ -1858,20 +1904,45 @@
         currentRecapBytes=bytes.slice();
         currentRecapPdfJs=recapPdf;
 
-        const classified=[];
-        for(let pageNumber=1;pageNumber<=recapPdf.numPages;pageNumber++){
-          recapUploadButton.textContent="Scanning Recaps "+pageNumber+"/"+recapPdf.numPages+"…";
-          classified.push(await classifyRecapPage(recapPdf,pageNumber));
-        }
-
         const recapSets=[];
-        let current=null;
-        for(const info of classified){
-          if(info.isFront||!current){
-            current={pages:[info.pageNumber],front:info.pageNumber};
-            recapSets.push(current);
-          }else if(info.hasContent){
-            current.pages.push(info.pageNumber);
+
+        if(recapPdf.numPages<=currentGroups.length){
+          // Preserve the original, reliable order mapping when there are no
+          // extra pages. This is the common case and must never depend on OCR.
+          for(let pageNumber=1;pageNumber<=recapPdf.numPages;pageNumber++){
+            recapSets.push({pages:[pageNumber],front:pageNumber});
+          }
+        }else{
+          // Extra pages can be recap backsides. Only in this case do we need
+          // to classify fronts vs continuations.
+          const classified=[];
+          for(let pageNumber=1;pageNumber<=recapPdf.numPages;pageNumber++){
+            recapUploadButton.textContent="Scanning Recaps "+pageNumber+"/"+recapPdf.numPages+"…";
+            classified.push(await classifyRecapPage(recapPdf,pageNumber));
+          }
+
+          let current=null;
+          for(const info of classified){
+            if(info.isFront){
+              current={pages:[info.pageNumber],front:info.pageNumber};
+              recapSets.push(current);
+            }else if(current&&info.hasContent){
+              current.pages.push(info.pageNumber);
+            }else if(!current){
+              // Fail-safe: never throw away page 1 if OCR/visual classification
+              // misses it. Treat it as the first recap front.
+              current={pages:[info.pageNumber],front:info.pageNumber};
+              recapSets.push(current);
+            }
+          }
+
+          // If classification still produced too few fronts, fall back to the
+          // safest sequential interpretation rather than hiding recaps.
+          if(recapSets.length<Math.min(currentGroups.length,recapPdf.numPages)){
+            recapSets.length=0;
+            for(let pageNumber=1;pageNumber<=Math.min(currentGroups.length,recapPdf.numPages);pageNumber++){
+              recapSets.push({pages:[pageNumber],front:pageNumber});
+            }
           }
         }
 
@@ -5781,6 +5852,10 @@
       recapPageCounter.textContent=activePreviewRecapPages.length
         ?(activePreviewRecapPageIndex+1)+" of "+activePreviewRecapPages.length
         :"0 of 0";
+      const recapControls=recapPageCounter.closest(".recap-controls");
+      if(recapControls){
+        recapControls.style.display=activePreviewRecapPages.length>1?"flex":"none";
+      }
 
       if(
         !activePreviewRecapPdf ||
