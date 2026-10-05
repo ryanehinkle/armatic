@@ -183,6 +183,8 @@
     .summary-row strong{color:#dddde2;font-size:.76rem;font-weight:850;font-variant-numeric:tabular-nums}
     .summary-row.total{margin-top:4px;padding-top:8px;border-top:1px solid #32323a;color:#9fc4ec}
     .summary-row.total span:first-child,.summary-row.total strong{color:#9fc4ec;font-weight:900}
+    .summary-row.net-ar{margin-top:4px;padding-top:8px;border-top:1px solid #32323a;color:#f5f5f7}
+    .summary-row.net-ar span:first-child,.summary-row.net-ar strong{color:#f5f5f7;font-weight:900}
 
     .contracted-details{margin-top:14px;border-top:1px solid #29292f}
     .contracted-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0 8px;list-style:none;cursor:pointer;color:#d8d8de;font-size:.72rem;font-weight:900;letter-spacing:.065em;text-transform:uppercase}
@@ -3678,9 +3680,28 @@
         summary.appendChild(line);
       });
 
-      if(summary.children.length){
-        finance.appendChild(summary);
-      }
+      const netArLine=document.createElement("div");
+      netArLine.className="summary-row net-ar";
+
+      const netArLabel=document.createElement("span");
+      netArLabel.textContent="Net amount w/ AR";
+
+      const netAmountWithAr=document.createElement("strong");
+      netAmountWithAr.textContent=formatMoney(
+        centsMoney(
+          moneyCents(Number(f.subtotal||0))+
+          moneyCents(
+            p.arProcessed&&p.arComparison
+              ?Number(p.arComparison.total||0)
+              :0
+          )
+        )
+      );
+
+      netArLine.append(netArLabel,netAmountWithAr);
+      summary.appendChild(netArLine);
+
+      finance.appendChild(summary);
 
       const replacePdfButton=document.createElement("button");
       replacePdfButton.type="button";
@@ -3761,6 +3782,7 @@
         p.arProcessed=false;
         p.arComparison=null;
         group.arComparison=null;
+        updateNetAmountWithAr(group);
         group.previewPdf=group.pdf;
         renderThumbnail(group.pdf,canvas).catch(error=>
           console.warn("Could not restore original BEO preview:",error)
@@ -3789,9 +3811,11 @@
         pasteZone,
         replaceButton,
         scanLog,
-        arResults
+        arResults,
+        netAmountWithAr
       };
 
+      updateNetAmountWithAr(group);
       syncOpportunityFlag(group);
 
       if(p.arProcessed&&p.arComparison){
@@ -4042,6 +4066,7 @@
               if(parsed.arComparison){
                 renderAdditionalRevenue(group.ui.arResults,parsed.arComparison);
                 updateSubtotalCheck(group.ui.subtotalCheck,parsed.arComparison);
+                updateNetAmountWithAr(group);
               }
             }else{
               showNoToastData(group);
@@ -4066,6 +4091,7 @@
           if(ui){
             renderAdditionalRevenue(ui.arResults,comparison);
             updateSubtotalCheck(ui.subtotalCheck,comparison);
+            updateNetAmountWithAr(group);
             await refreshEventPdfPreview(group);
 
             ui.contracted.open=false;
@@ -4147,6 +4173,7 @@
 
         renderAdditionalRevenue(results,comparison);
         updateSubtotalCheck(subtotalCheck,comparison);
+        updateNetAmountWithAr(group);
         await refreshEventPdfPreview(group);
         updateEventsProgress();
         updatePortfolioSales();
@@ -5513,6 +5540,22 @@
       ui.pasteZone.classList.remove("processing");
       ui.pasteZone.style.display="";
       ui.replaceButton.classList.remove("visible");
+    }
+
+    function updateNetAmountWithAr(group){
+      const value=group?.ui?.netAmountWithAr;
+      const parsed=group?.parsed;
+      if(!value||!parsed)return;
+
+      const subtotal=Number(parsed.financial?.subtotal||0);
+      const ar=
+        parsed.arProcessed&&parsed.arComparison
+          ?Number(parsed.arComparison.total||0)
+          :0;
+
+      value.textContent=formatMoney(
+        centsMoney(moneyCents(subtotal)+moneyCents(ar))
+      );
     }
 
     function updateSubtotalCheck(badge,comparison){
