@@ -1629,6 +1629,7 @@
       // known printed recap template. A stricter darkness cutoff keeps faint
       // scanner haze / dust from ever entering the detector.
       const candidate=new Uint8Array(width*roiHeight);
+      const redCandidate=new Uint8Array(width*roiHeight);
 
       for(let y=0;y<roiHeight;y++){
         for(let x=45;x<555;x++){
@@ -1648,10 +1649,97 @@
           const darkOrBlack=gray<205;
           const colored=chroma>=18&&max<245;
 
+          // Red ink is a deliberate override: if there is a real connected
+          // red mark/area in this same header region, the recap should NOT be
+          // flagged for opportunities. Keep this separate from normal colored
+          // ink so a few reddish scan pixels cannot cancel a legitimate flag.
+          const isRed=
+            r>=105 &&
+            r>=g*1.28 &&
+            r>=b*1.28 &&
+            (r-Math.max(g,b))>=28;
+
+          if(isRed){
+            redCandidate[y*width+x]=1;
+          }
+
           if(darkOrBlack||colored){
             candidate[y*width+x]=1;
           }
         }
+      }
+
+      // Before normal opportunity scoring, check for a substantial connected
+      // red mark. A solid red mark nullifies any opportunity detection.
+      const redVisited=new Uint8Array(redCandidate.length);
+      let redTotalInk=0;
+      let largestRedComponent=0;
+      let redSolidComponents=0;
+
+      for(let seed=0;seed<redCandidate.length;seed++){
+        if(!redCandidate[seed]||redVisited[seed])continue;
+
+        const stack=[seed];
+        redVisited[seed]=1;
+        let area=0;
+        let minX=width,maxX=0,minY=roiHeight,maxY=0;
+
+        while(stack.length){
+          const pos=stack.pop();
+          const y=Math.floor(pos/width);
+          const x=pos-y*width;
+
+          area++;
+          minX=Math.min(minX,x);
+          maxX=Math.max(maxX,x);
+          minY=Math.min(minY,y);
+          maxY=Math.max(maxY,y);
+
+          for(let dy=-1;dy<=1;dy++){
+            for(let dx=-1;dx<=1;dx++){
+              if(dx===0&&dy===0)continue;
+
+              const nx=x+dx;
+              const ny=y+dy;
+              if(nx<45||nx>=555||ny<0||ny>=roiHeight)continue;
+              if(ny>=58&&nx>=205&&nx<=395)continue;
+
+              const ni=ny*width+nx;
+              if(!redCandidate[ni]||redVisited[ni])continue;
+              redVisited[ni]=1;
+              stack.push(ni);
+            }
+          }
+        }
+
+        const componentWidth=maxX-minX+1;
+        const componentHeight=maxY-minY+1;
+        const boxArea=componentWidth*componentHeight;
+        const density=boxArea>0?area/boxArea:0;
+
+        if(area<12)continue;
+        if(componentWidth<4||componentHeight<3)continue;
+        if(density<0.07)continue;
+
+        redTotalInk+=area;
+        largestRedComponent=Math.max(largestRedComponent,area);
+
+        if(
+          area>=42 &&
+          componentWidth>=8 &&
+          componentHeight>=6
+        ){
+          redSolidComponents++;
+        }
+      }
+
+      const hasRedOverride=
+        redSolidComponents>=1 ||
+        largestRedComponent>=55 ||
+        redTotalInk>=95;
+
+      if(hasRedOverride){
+        return false;
       }
 
       // Second pass: remove salt-and-pepper scan noise. A real pen stroke has
