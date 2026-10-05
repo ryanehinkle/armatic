@@ -1630,13 +1630,12 @@
       // known printed recap template. A stricter darkness cutoff keeps faint
       // scanner haze / dust from ever entering the detector.
       const candidate=new Uint8Array(width*roiHeight);
-      let coloredInk=0;
-      let coloredRows=0;
 
       for(let y=0;y<roiHeight;y++){
-        let rowColored=0;
         for(let x=45;x<555;x++){
           if(y>=58&&x>=205&&x<=395)continue;
+          if(opportunityTemplateCovers(x,y))continue;
+
           const i=(y*width+x)*4;
           const r=pixels[i],g=pixels[i+1],b=pixels[i+2];
           const gray=(r+g+b)/3;
@@ -1644,20 +1643,16 @@
           const min=Math.min(r,g,b);
           const chroma=max-min;
 
-          // The supplied missed marks are green/teal handwritten stars and
-          // numbers. Printed recap ink is essentially grayscale, so meaningful
-          // colored pen strokes in these blank header corners are a very strong
-          // signal and should not depend on the darker black-ink threshold.
-          if(chroma>=24&&max<235){
-            coloredInk++;
-            rowColored++;
+          // Treat any meaningful pen ink as a candidate: black/gray writing,
+          // or colored writing of any hue. The printed form is masked above,
+          // and connected-component filtering below removes isolated scan noise.
+          const darkOrBlack=gray<205;
+          const colored=chroma>=18&&max<245;
+
+          if(darkOrBlack||colored){
+            candidate[y*width+x]=1;
           }
-
-          if(gray>=165||opportunityTemplateCovers(x,y))continue;
-          candidate[y*width+x]=1;
         }
-
-        if(rowColored>=3)coloredRows++;
       }
 
       // Second pass: remove salt-and-pepper scan noise. A real pen stroke has
@@ -1769,17 +1764,14 @@
         }
       }
 
-      // A flag now requires a real cluster of handwriting instead of merely
-      // "some extra dark pixels": one strong mark, multiple medium marks, or a
-      // substantial amount of connected ink. This keeps genuine stars/checks/
-      // writing detectable while being much harder for scan noise to trigger.
+      // Any meaningful connected handwriting counts, whether black/gray or
+      // colored. Keep only a small minimum cluster so stars, numbers, checks,
+      // short notes, etc. are all detected.
       return(
-        coloredInk>=18 ||
-        coloredRows>=4 ||
         strongComponents>=1 ||
-        mediumComponents>=2 ||
-        totalValidInk>=90 ||
-        largestValid>=58
+        mediumComponents>=1 ||
+        totalValidInk>=48 ||
+        largestValid>=30
       );
     }
 
@@ -1974,26 +1966,16 @@
           syncOpportunityFlag(group);
         }
 
-        recapUploadButton.title=
-          linked+" of "+currentGroups.length+" events linked by recap fronts · "+
-          backSides+" back "+(backSides===1?"side":"s")+" · "+
-          opportunities+" opportunities detected";
+        const recapSummary=
+          linked+"/"+currentGroups.length+
+          " event recaps scanned · "+
+          opportunities+" opportunities detected.";
 
+        recapUploadButton.title=recapSummary;
         await terminalMessage(
-          "Linked "+linked+" recap"+(linked===1?"":"s")+" to "+currentGroups.length+
-          " events by order"+
-          (backSides?" · "+backSides+" back "+(backSides===1?"side":"s")+" attached":"")+
-          " · "+opportunities+" opportunities detected.",
+          recapSummary,
           linked===currentGroups.length?"success":"muted"
         );
-
-        if(recapSets.length!==currentGroups.length){
-          await terminalMessage(
-            "Detected "+recapSets.length+" recap front page"+(recapSets.length===1?"":"s")+
-            " for "+currentGroups.length+" events.",
-            "muted"
-          );
-        }
       }catch(error){
         console.error("Recap PDF upload failed:",error);
         alert("Could not read that recap PDF. Please try again.");
