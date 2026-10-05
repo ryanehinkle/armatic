@@ -4892,68 +4892,29 @@
     }
 
     function getPortfolioSalesTotal(){
-      let calculatedCents=0;
-      let toastCents=0;
-      let canUseToastComparison=currentGroups.length>0;
+      let subtotalCents=0;
+      let arCents=0;
 
       for(const group of currentGroups){
         const parsed=group?.parsed;
         if(!parsed)continue;
 
-        const comparison=
-          parsed.arProcessed&&parsed.arComparison
-            ? parsed.arComparison
-            : null;
+        // Portfolio total is intentionally simple and deterministic:
+        // sum every event's displayed Contracted Subtotal, then add every
+        // event's Total Additional Revenue. Nothing from Toast replaces or
+        // overrides either side of this calculation.
+        subtotalCents+=moneyCents(
+          Number(parsed.financial?.subtotal||0)
+        );
 
-        const checkedSubtotal=
-          comparison?.subtotalCheck?.contractedSubtotal;
-
-        const subtotal=
-          checkedSubtotal!==null &&
-          checkedSubtotal!==undefined &&
-          Number.isFinite(Number(checkedSubtotal))
-            ? Number(checkedSubtotal)
-            : Number(parsed.financial?.subtotal||0);
-
-        const ar=comparison?Number(comparison.total||0):0;
-
-        // Normal source of truth: exactly what the page is calculating/displaying.
-        calculatedCents+=moneyCents(subtotal)+moneyCents(ar);
-
-        if(parsed.tags?.includes("Play It Forward")){
-          // Known $0 events do not need a Toast row.
-          continue;
+        if(parsed.arProcessed&&parsed.arComparison){
+          arCents+=moneyCents(
+            Number(parsed.arComparison.total||0)
+          );
         }
-
-        const toast=group.toastData||null;
-        const toastNetSales=toast?.__totalNetSales;
-
-        if(
-          toastNetSales===null ||
-          toastNetSales===undefined ||
-          !Number.isFinite(Number(toastNetSales))
-        ){
-          canUseToastComparison=false;
-          continue;
-        }
-
-        toastCents+=
-          moneyCents(toastNetSales)-
-          moneyCents(toast["Admin Fee"]||0)-
-          moneyCents(toast["Service Charge"]||0);
       }
 
-      // Only correct a true one-cent rounding discrepancy.
-      // Anything larger stays as the page-calculated value so real mismatches
-      // remain visible instead of being silently replaced by Toast.
-      if(
-        canUseToastComparison &&
-        Math.abs(calculatedCents-toastCents)===1
-      ){
-        return centsMoney(toastCents);
-      }
-
-      return centsMoney(calculatedCents);
+      return centsMoney(subtotalCents+arCents);
     }
 
     function getPrimaryEventDateRaw(){
