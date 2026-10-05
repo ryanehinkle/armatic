@@ -238,9 +238,9 @@
     .ar-replace.visible{display:inline-block}
 
     .empty-events{display:none;padding:28px;border:1px dashed #34343b;border-radius:12px;color:#85858f;text-align:center}
-    .pdf-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;gap:12px;padding:10px;background:rgba(3,3,5,.76);backdrop-filter:blur(8px)}
+    .pdf-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;gap:12px;padding:50px 10px 10px;background:rgba(3,3,5,.76);backdrop-filter:blur(8px)}
     .pdf-modal.open{display:flex}
-    .preview-shell{position:relative;width:min(96vw,1680px);max-height:98vh;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
+    .preview-shell{position:relative;width:min(96vw,1680px);max-height:calc(100vh - 60px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
     .preview-shell.no-recap{width:min(58vw,900px);grid-template-columns:minmax(0,1fr)}
     .preview-shell.no-recap .preview-header{grid-template-columns:minmax(0,1fr)}
     .preview-shell.no-recap .preview-side-title:first-child{border-right:0}
@@ -1897,49 +1897,39 @@
         currentRecapPdfJs=recapPdf;
 
         const recapSets=[];
+        const classified=[];
 
-        if(recapPdf.numPages<=currentGroups.length){
-          // Preserve the original, reliable order mapping when there are no
-          // extra pages. This is the common case and must never depend on OCR.
-          for(let pageNumber=1;pageNumber<=recapPdf.numPages;pageNumber++){
-            recapSets.push({pages:[pageNumber],front:pageNumber});
-          }
-        }else{
-          // Extra pages can be recap backsides. Only in this case do we need
-          // to classify fronts vs continuations.
-          const classified=[];
-          for(let pageNumber=1;pageNumber<=recapPdf.numPages;pageNumber++){
-            recapUploadButton.textContent="Scanning Recaps "+pageNumber+"/"+recapPdf.numPages+"…";
-            classified.push(await classifyRecapPage(recapPdf,pageNumber));
-          }
+        for(let pageNumber=1;pageNumber<=recapPdf.numPages;pageNumber++){
+          recapUploadButton.textContent="Scanning Recaps "+pageNumber+"/"+recapPdf.numPages+"…";
+          classified.push(await classifyRecapPage(recapPdf,pageNumber));
+        }
 
-          let current=null;
-          for(const info of classified){
-            if(info.isFront){
-              current={pages:[info.pageNumber],front:info.pageNumber};
-              recapSets.push(current);
-            }else if(current&&info.hasContent){
-              current.pages.push(info.pageNumber);
-            }else if(!current){
-              // Fail-safe: never throw away page 1 if OCR/visual classification
-              // misses it. Treat it as the first recap front.
-              current={pages:[info.pageNumber],front:info.pageNumber};
-              recapSets.push(current);
-            }
+        let current=null;
+
+        for(const info of classified){
+          if(info.isFront){
+            // A real Event Recap/Event Information page always starts the next event.
+            current={pages:[info.pageNumber],front:info.pageNumber};
+            recapSets.push(current);
+            continue;
           }
 
-          // If classification still produced too few fronts, fall back to the
-          // safest sequential interpretation rather than hiding recaps.
-          if(recapSets.length<Math.min(currentGroups.length,recapPdf.numPages)){
-            recapSets.length=0;
-            for(let pageNumber=1;pageNumber<=Math.min(currentGroups.length,recapPdf.numPages);pageNumber++){
-              recapSets.push({pages:[pageNumber],front:pageNumber});
-            }
+          if(!current){
+            // Page 1 should normally be a front. If OCR misses it, keep it as
+            // the first recap rather than discarding the packet.
+            current={pages:[info.pageNumber],front:info.pageNumber};
+            recapSets.push(current);
+            continue;
+          }
+
+          // Anything with writing but WITHOUT the recap headings is the backside
+          // / continuation of the recap immediately before it.
+          if(info.hasContent){
+            current.pages.push(info.pageNumber);
           }
         }
 
         const linked=Math.min(recapSets.length,currentGroups.length);
-        let opportunities=0;
         let backSides=0;
 
         for(let index=0;index<currentGroups.length;index++){
@@ -1962,9 +1952,15 @@
             group.recapPageNumber=null;
             group.opportunityDetected=false;
           }
-          if(group.opportunityDetected)opportunities++;
           syncOpportunityFlag(group);
         }
+
+        const opportunities=currentGroups.filter(group=>
+          Boolean(
+            group?.opportunityDetected &&
+            group?.ui?.opportunityFlag?.classList.contains("visible")
+          )
+        ).length;
 
         const recapSummary=
           linked+"/"+currentGroups.length+
