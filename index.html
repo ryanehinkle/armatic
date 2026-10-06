@@ -69,7 +69,25 @@
     .scan-progress-bar{width:0;height:100%;background:#5e93cc;transition:width .65s cubic-bezier(.22,.61,.36,1);will-change:width}
     .events-head{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:24px;margin:28px 0 14px}
     .events-title-group{display:flex;align-items:center;gap:16px;min-width:0;justify-self:start}
-    .events-head h2{font-size:1.1rem;color:#f4f4f6}
+    .event-filter-wrap{position:relative;flex:0 0 auto}
+    .event-filter-button{width:35px;height:35px;display:grid;place-items:center;border:1px solid #343b43;border-radius:9px;background:#15181c;color:#929aa4;cursor:pointer;transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease,box-shadow .18s ease}
+    .event-filter-button:hover,.event-filter-button:focus-visible{background:#1b2229;border-color:#4c6680;color:#b9d5ef;transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.2);outline:none}
+    .event-filter-button.active{border-color:#5d8db9;background:#1a2b3b;color:#b9dcfb;box-shadow:0 0 0 2px rgba(81,133,189,.09)}
+    .event-filter-button svg{width:16px;height:16px;display:block}
+    .event-filter-menu{position:absolute;z-index:80;top:calc(100% + 8px);left:0;width:220px;padding:8px;border:1px solid #363b42;border-radius:11px;background:rgba(21,22,25,.98);box-shadow:0 18px 48px rgba(0,0,0,.42);backdrop-filter:blur(10px);opacity:0;visibility:hidden;transform:translateY(-7px) scale(.97);transform-origin:top left;transition:opacity .17s ease,transform .2s cubic-bezier(.2,.8,.2,1),visibility 0s linear .2s}
+    .event-filter-menu.open{opacity:1;visibility:visible;transform:translateY(0) scale(1);transition-delay:0s}
+    .event-filter-menu-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 5px 7px}
+    .event-filter-menu-title{color:#d9dde2;font-size:.69rem;font-weight:900;letter-spacing:.055em;text-transform:uppercase}
+    .event-filter-clear{border:0;padding:2px 3px;background:transparent;color:#72808e;font-size:.63rem;font-weight:800;cursor:pointer;transition:color .14s ease}
+    .event-filter-clear:hover{color:#b7d5f1}
+    .event-filter-options{display:flex;flex-direction:column;gap:3px;max-height:250px;overflow:auto}
+    .event-filter-option{width:100%;display:flex;align-items:center;gap:9px;border:1px solid transparent;border-radius:8px;padding:8px 9px;background:transparent;color:#c4c8ce;text-align:left;font-size:.74rem;font-weight:780;cursor:pointer;transition:background .14s ease,border-color .14s ease,color .14s ease}
+    .event-filter-option:hover{background:#1e2329;border-color:#303a44;color:#eef4fa}
+    .event-filter-option.selected{background:#1b2a38;border-color:#385775;color:#c5e1fb}
+    .event-filter-check{width:15px;height:15px;display:grid;place-items:center;flex:0 0 auto;border:1px solid #4a5058;border-radius:4px;background:#111316;color:transparent;font-size:.66rem;font-weight:950;transition:.14s ease}
+    .event-filter-option.selected .event-filter-check{border-color:#6f9fd1;background:#264764;color:#d9edff}
+    .event-filter-empty{padding:9px;color:#747b83;font-size:.7rem;text-align:center}
+    .events-head h2{margin-left:2px;font-size:1.1rem;color:#f4f4f6}
     .events-progress{display:flex;align-items:center;gap:8px;min-width:150px}
     .events-progress-track{width:118px;height:6px;overflow:hidden;border-radius:999px;background:#29292f;border:1px solid #33333a}
     .events-progress-bar{width:0;height:100%;border-radius:999px;background:#79c990;transition:width .24s ease}
@@ -361,6 +379,18 @@
 
     <div class="events-head">
       <div class="events-title-group">
+        <div class="event-filter-wrap" id="eventFilterWrap">
+          <button id="eventFilterButton" class="event-filter-button" type="button" aria-label="Filter events by type" aria-expanded="false" title="Filter event types">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <div id="eventFilterMenu" class="event-filter-menu" aria-hidden="true">
+            <div class="event-filter-menu-head">
+              <span class="event-filter-menu-title">Event type</span>
+              <button id="eventFilterClear" class="event-filter-clear" type="button">Clear</button>
+            </div>
+            <div id="eventFilterOptions" class="event-filter-options"></div>
+          </div>
+        </div>
         <h2>Events</h2>
         <div class="events-progress" aria-label="AR completion progress">
           <div class="events-progress-track">
@@ -463,7 +493,7 @@
 
     const {PDFDocument,rgb,StandardFonts}=window.PDFLib;
     const $=(id)=>document.getElementById(id);
-    const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),recapPdfInput=$("recapPdfInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),saveSessionButton=$("saveSessionButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),gameUserFlag=$("gameUserFlag"),recapUploadButton=$("recapUploadButton"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),previewShell=document.querySelector(".preview-shell"),previewEnteredStrip=$("previewEnteredStrip"),previewEnteredCheck=$("previewEnteredCheck"),previewEnteredBar=$("previewEnteredBar"),previewEnteredText=$("previewEnteredText"),modalEventName=$("modalEventName"),modalEventToastLink=$("modalEventToastLink"),modalBody=$("modalBody"),recapPane=$("recapPane"),prevPage=$("prevPage"),nextPage=$("nextPage"),prevRecapPage=$("prevRecapPage"),nextRecapPage=$("nextRecapPage"),recapPageCounter=$("recapPageCounter"),prevEvent=$("prevEvent"),nextEvent=$("nextEvent"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading"),recapCanvas=$("recapCanvas"),recapLoading=$("recapLoading");
+    const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),recapPdfInput=$("recapPdfInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),saveSessionButton=$("saveSessionButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventFilterWrap=$("eventFilterWrap"),eventFilterButton=$("eventFilterButton"),eventFilterMenu=$("eventFilterMenu"),eventFilterClear=$("eventFilterClear"),eventFilterOptions=$("eventFilterOptions"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),gameUserFlag=$("gameUserFlag"),recapUploadButton=$("recapUploadButton"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),previewShell=document.querySelector(".preview-shell"),previewEnteredStrip=$("previewEnteredStrip"),previewEnteredCheck=$("previewEnteredCheck"),previewEnteredBar=$("previewEnteredBar"),previewEnteredText=$("previewEnteredText"),modalEventName=$("modalEventName"),modalEventToastLink=$("modalEventToastLink"),modalBody=$("modalBody"),recapPane=$("recapPane"),prevPage=$("prevPage"),nextPage=$("nextPage"),prevRecapPage=$("prevRecapPage"),nextRecapPage=$("nextRecapPage"),recapPageCounter=$("recapPageCounter"),prevEvent=$("prevEvent"),nextEvent=$("nextEvent"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading"),recapCanvas=$("recapCanvas"),recapLoading=$("recapLoading");
     const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
     const floatingTopgolfLogo=$("floatingTopgolfLogo");
     const landingCard=document.querySelector(".landing-card");
@@ -487,6 +517,7 @@
     let currentRecapBytes=null;
     let currentRecapPdfJs=null;
     let currentGroups=[];
+    let selectedEventTags=new Set();
     let currentToastByEvent=new Map();
     let gameUserChecksDetected=false;
     let currentUploadName="Automatic-AR.pdf";
@@ -1288,6 +1319,8 @@
         currentUploadName=
           String(snapshot.currentUploadName||snapshot.fileNameText||"Automatic-AR.pdf");
         currentGroups=[];
+        selectedEventTags.clear();
+        closeEventFilter();
 
         for(let index=0;index<snapshot.groups.length;index++){
           const savedGroup=snapshot.groups[index];
@@ -1436,6 +1469,8 @@
       currentRecapBytes=null;
       currentRecapPdfJs=null;
       currentGroups=[];
+      selectedEventTags.clear();
+      closeEventFilter();
       currentToastByEvent=new Map();
       gameUserChecksDetected=false;
       syncGameUserFlag();
@@ -3312,6 +3347,129 @@
       }
     }
 
+    function getAvailableEventTags(){
+      return [...new Set(
+        currentGroups.flatMap(group=>
+          Array.isArray(group?.parsed?.tags)?group.parsed.tags:[]
+        ).map(tag=>String(tag||"").trim()).filter(Boolean)
+      )].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:"base"}));
+    }
+
+    function closeEventFilter(){
+      eventFilterMenu?.classList.remove("open");
+      eventFilterMenu?.setAttribute("aria-hidden","true");
+      eventFilterButton?.setAttribute("aria-expanded","false");
+    }
+
+    function syncEventFilterMenu(){
+      if(!eventFilterOptions)return;
+
+      const available=getAvailableEventTags();
+      const availableSet=new Set(available);
+
+      for(const selected of [...selectedEventTags]){
+        if(!availableSet.has(selected))selectedEventTags.delete(selected);
+      }
+
+      eventFilterOptions.replaceChildren();
+
+      if(!available.length){
+        const empty=document.createElement("div");
+        empty.className="event-filter-empty";
+        empty.textContent="No event types";
+        eventFilterOptions.appendChild(empty);
+      }else{
+        for(const tagName of available){
+          const option=document.createElement("button");
+          option.type="button";
+          option.className="event-filter-option";
+          option.dataset.tag=tagName;
+
+          const check=document.createElement("span");
+          check.className="event-filter-check";
+          check.textContent="✓";
+
+          const label=document.createElement("span");
+          label.textContent=tagName;
+
+          option.append(check,label);
+          option.classList.toggle("selected",selectedEventTags.has(tagName));
+          option.setAttribute("aria-pressed",selectedEventTags.has(tagName)?"true":"false");
+
+          option.addEventListener("click",()=>{
+            if(selectedEventTags.has(tagName)){
+              selectedEventTags.delete(tagName);
+            }else{
+              selectedEventTags.add(tagName);
+            }
+
+            syncEventFilterMenu();
+            applyEventFilters();
+          });
+
+          eventFilterOptions.appendChild(option);
+        }
+      }
+
+      const hasFilters=selectedEventTags.size>0;
+      eventFilterButton?.classList.toggle("active",hasFilters);
+      eventFilterButton?.setAttribute(
+        "aria-label",
+        hasFilters
+          ?"Filter events by type, "+selectedEventTags.size+" selected"
+          :"Filter events by type"
+      );
+      eventFilterClear.disabled=!hasFilters;
+      eventFilterClear.style.opacity=hasFilters?"1":".45";
+    }
+
+    function applyEventFilters(){
+      const active=selectedEventTags.size>0;
+      let shown=0;
+
+      for(const group of currentGroups){
+        const tags=Array.isArray(group?.parsed?.tags)?group.parsed.tags:[];
+        const matches=!active||tags.some(tag=>selectedEventTags.has(tag));
+        if(group.cardElement){
+          group.cardElement.style.display=matches?"":"none";
+        }
+        if(matches)shown++;
+      }
+
+      eventCount.textContent=active
+        ?shown+" of "+currentGroups.length+(currentGroups.length===1?" event":" events")
+        :currentGroups.length+(currentGroups.length===1?" event":" events");
+    }
+
+    eventFilterButton?.addEventListener("click",(event)=>{
+      event.stopPropagation();
+      const opening=!eventFilterMenu.classList.contains("open");
+      eventFilterMenu.classList.toggle("open",opening);
+      eventFilterMenu.setAttribute("aria-hidden",opening?"false":"true");
+      eventFilterButton.setAttribute("aria-expanded",opening?"true":"false");
+    });
+
+    eventFilterMenu?.addEventListener("click",event=>event.stopPropagation());
+
+    eventFilterClear?.addEventListener("click",()=>{
+      selectedEventTags.clear();
+      syncEventFilterMenu();
+      applyEventFilters();
+    });
+
+    document.addEventListener("click",event=>{
+      if(eventFilterWrap&&!eventFilterWrap.contains(event.target)){
+        closeEventFilter();
+      }
+    });
+
+    document.addEventListener("keydown",event=>{
+      if(event.key==="Escape"&&eventFilterMenu?.classList.contains("open")){
+        closeEventFilter();
+        eventFilterButton?.focus();
+      }
+    });
+
     function deleteEvent(group){
       const index=currentGroups.indexOf(group);
 
@@ -3373,6 +3531,9 @@
       if(currentGroups.length){
         eventsGrid.appendChild(createAddEventSlot());
       }
+
+      syncEventFilterMenu();
+      applyEventFilters();
     }
 
     async function addIndividualEventPdf(file){
@@ -4987,7 +5148,8 @@
       const dd=String(date.getDate()).padStart(2,"0");
       const yy=String(date.getFullYear()).slice(-2);
 
-      return weekday+" "+mm+"."+dd+"."+yy+" AR.pdf";
+      const dateLabel=weekday+" "+mm+"."+dd+"."+yy;
+      return dateLabel+" AR.pdf";
     }
 
     function animatePortfolioSales(target){
