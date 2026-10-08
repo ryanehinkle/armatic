@@ -2384,7 +2384,14 @@
 
       if(normalized==="food")return"Food";
       if(normalized==="beverages"||normalized==="beverage")return"Beverages";
-      if(normalized==="gameplay"||normalized==="game play"||normalized==="game enhancement")return"Gameplay";
+      if(normalized==="gameplay"||normalized==="game play")return"Gameplay";
+      if(
+        normalized==="game enhancement"||
+        normalized==="game enhancements"||
+        normalized==="team building"||
+        normalized==="teambuilding"||
+        normalized==="team-building"
+      )return"Labor";
       if(normalized==="retail")return"Retail";
       if(normalized==="labor"||normalized==="labour")return"Labor";
       if(normalized==="asset"||normalized==="assets")return"Asset";
@@ -3189,7 +3196,8 @@
       if(/\bdigital media\b|\bmarketing partnerships?\b/.test(x))return"Digital Media";
       if(/\bfood\b/.test(x)&&!/\bbeverages?\b/.test(x))return"Food";
       if(/\bbeverages?\b|\bbar\b|\balcohol\b/.test(x))return"Beverages";
-      if(/\bgame ?play\b|\bgame enhancement\b|\bgame\b/.test(x))return"Gameplay";
+      if(/\bgame enhancement\b|\bgame enhancements\b|\bteam building\b|\bteambuilding\b/.test(x))return"Labor";
+      if(/\bgame ?play\b|\bgame\b/.test(x))return"Gameplay";
       if(/\bretail\b|\bmerch/.test(x))return"Retail";
       if(/\blabor\b|\blabour\b|\bstaff\b/.test(x))return"Labor";
       return"Other Fees";
@@ -3366,6 +3374,19 @@
 
       const available=getAvailableEventTags();
       const availableSet=new Set(available);
+      const tagCounts=new Map();
+
+      for(const group of currentGroups){
+        const groupTags=new Set(
+          (Array.isArray(group?.parsed?.tags)?group.parsed.tags:[])
+            .map(tag=>String(tag||"").trim())
+            .filter(Boolean)
+        );
+
+        for(const tagName of groupTags){
+          tagCounts.set(tagName,(tagCounts.get(tagName)||0)+1);
+        }
+      }
 
       for(const selected of [...selectedEventTags]){
         if(!availableSet.has(selected))selectedEventTags.delete(selected);
@@ -3390,7 +3411,7 @@
           check.textContent="✓";
 
           const label=document.createElement("span");
-          label.textContent=tagName;
+          label.textContent=tagName+" ("+(tagCounts.get(tagName)||0)+")";
 
           option.append(check,label);
           option.classList.toggle("selected",selectedEventTags.has(tagName));
