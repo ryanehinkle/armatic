@@ -1369,7 +1369,18 @@
           };
 
           if(group.parsed){
+            refreshParsedFinancials(group);
+
+            if(group.toastData){
+              group.arComparison=compareAdditionalRevenue(
+                group.toastData,
+                group.parsed.financial,
+                group.parsed
+              );
+            }
+
             group.parsed.arComparison=group.arComparison;
+            group.parsed.arProcessed=Boolean(group.arComparison);
           }
 
           currentGroups.push(group);
@@ -2167,6 +2178,24 @@
       return{name,fullTitle:fullTitle||name,date,time,guests,eventCard,opportunityId,beoNumber:group.beoNumber,tags,financial};
     }
 
+    function refreshParsedFinancials(group){
+      if(!group?.parsed)return;
+
+      const lines=Array.isArray(group.records)
+        ?group.records.flatMap(record=>Array.isArray(record?.lines)?record.lines:[])
+        :[];
+
+      if(!lines.length)return;
+
+      const text=Array.isArray(group.records)
+        ?group.records.map(record=>String(record?.text||"")).join("\n")
+        :"";
+
+      const tags=detectEventTags(lines,text);
+      group.parsed.tags=tags;
+      group.parsed.financial=extractFinancials(lines,tags);
+    }
+
     function extractOpportunityId(lines,text){
       const source=[...(lines||[]),String(text||"")].join("\n");
       const match=source.match(/Opportunity\s*ID\s*:\s*([A-Za-z0-9]{15,18})\b/i);
@@ -2878,7 +2907,7 @@
       for(const rawLine of lines){
         const line=clean(rawLine);
         const m=line.match(
-          /^(Food|Beverages?|Gameplay|Game\\s*Enhancement|Retail|Labor|Limited\\s+Inventory|Equipment\\s+Rental|Event\\s+Space\\s+Rental|Space\\s+Rental|Digital\\s+Media)\\s+TOTAL\\s*:\\s*USD\\s*(-?[\\d,.]+)/i
+          /^(Food|Beverages?|Gameplay|Game\s*Enhancements?|Team\s*Building|Teambuilding|Retail|Labor|Limited\s+Inventory|Equipment\s+Rental|Event\s+Space\s+Rental|Space\s+Rental|Digital\s+Media)\s+TOTAL\s*:\s*USD\s*(-?[\d,.]+)/i
         );
 
         if(!m)continue;
@@ -3591,6 +3620,7 @@
         };
 
         group.parsed=parseEvent(group);
+        refreshParsedFinancials(group);
 
         if(group.parsed.tags.includes("Play It Forward")){
           const zeroComparison=makeZeroPlayItForwardComparison();
