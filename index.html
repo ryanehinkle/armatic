@@ -2423,10 +2423,13 @@
 
       if(normalized==="food")return"Food";
       if(normalized==="beverages"||normalized==="beverage")return"Beverages";
-      if(normalized==="gameplay"||normalized==="game play")return"Gameplay";
       if(
+        normalized==="gameplay"||
+        normalized==="game play"||
         normalized==="game enhancement"||
-        normalized==="game enhancements"||
+        normalized==="game enhancements"
+      )return"Gameplay";
+      if(
         normalized==="team building"||
         normalized==="teambuilding"||
         normalized==="team-building"
@@ -2444,48 +2447,32 @@
     }
 
     function extractGameEnhancementContractedTotal(lines){
-      let inSection=false;
-      let itemTotal=0;
+      let section="";
+      let total=0;
 
       for(const rawLine of Array.isArray(lines)?lines:[]){
         const line=clean(rawLine);
-        const normalized=line.toLowerCase();
-
-        if(
-          normalized==="game enhancement"||
-          normalized==="game enhancements"||
-          normalized==="team building"||
-          normalized==="teambuilding"||
-          normalized==="team-building"
-        ){
-          inSection=true;
-          continue;
-        }
-
-        if(!inSection)continue;
-
-        const totalMatch=line.match(
-          /^(?:Game\s*Enhancements?|Team\s*Building|Teambuilding)\s+TOTAL\s*:\s*USD\s*(-?[\d,.]+)/i
-        );
-        if(totalMatch){
-          return Math.abs(parseMoney(totalMatch[1])||0);
-        }
-
         const nextSection=detectProductSection(line);
-        if(nextSection&&nextSection!=="Labor"){
-          inSection=false;
+
+        if(nextSection){
+          section=nextSection;
           continue;
         }
 
-        const item=extractLineItem(line,"Labor");
-        if(item){
-          itemTotal+=item.printedTotal!==null
-            ?Math.max(0,Number(item.printedTotal)||0)
-            :Math.max(0,Number(item.computedTotal)||0);
-        }
+        if(section!=="Gameplay")continue;
+        if(!/\bteam\s*building\b|\bteambuilding\b/i.test(line))continue;
+
+        const item=extractLineItem(line,"Gameplay");
+        if(!item)continue;
+
+        const amount=item.printedTotal!==null
+          ?Math.max(0,Number(item.printedTotal)||0)
+          :Math.max(0,Number(item.computedTotal)||0);
+
+        total+=amount;
       }
 
-      return itemTotal;
+      return total;
     }
 
     function extractLineItem(line,section){
@@ -2975,6 +2962,24 @@
         detected[category]=true;
       }
 
+      const teamBuildingContracted=extractGameEnhancementContractedTotal(lines);
+
+      if(teamBuildingContracted>0.004){
+        categories.Gameplay=Math.max(
+          0,
+          Number(categories.Gameplay||0)-teamBuildingContracted
+        );
+        categories.Labor=
+          Number(categories.Labor||0)+teamBuildingContracted;
+
+        detected.Labor=true;
+
+        if(categories.Gameplay<0.005){
+          categories.Gameplay=0;
+          delete detected.Gameplay;
+        }
+      }
+
       const contractedBeverageSplit={
         foundNA:false,
         foundLBW:false,
@@ -3280,8 +3285,8 @@
       if(/\bdigital media\b|\bmarketing partnerships?\b/.test(x))return"Digital Media";
       if(/\bfood\b/.test(x)&&!/\bbeverages?\b/.test(x))return"Food";
       if(/\bbeverages?\b|\bbar\b|\balcohol\b/.test(x))return"Beverages";
-      if(/\bgame enhancement\b|\bgame enhancements\b|\bteam building\b|\bteambuilding\b/.test(x))return"Labor";
-      if(/\bgame ?play\b|\bgame\b/.test(x))return"Gameplay";
+      if(/\bteam building\b|\bteambuilding\b/.test(x))return"Labor";
+      if(/\bgame enhancement\b|\bgame enhancements\b|\bgame ?play\b|\bgame\b/.test(x))return"Gameplay";
       if(/\bretail\b|\bmerch/.test(x))return"Retail";
       if(/\blabor\b|\blabour\b|\bstaff\b/.test(x))return"Labor";
       return"Other Fees";
