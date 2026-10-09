@@ -1375,26 +1375,49 @@
               const rawLines=group.records.flatMap(record=>
                 Array.isArray(record?.lines)?record.lines:[]
               );
-              const enhancementTotal=extractGameEnhancementContractedTotal(rawLines);
+              const rawTotals=extractGameplayLaborContractedTotals(rawLines);
+              const teamBuildingTotal=extractGameEnhancementContractedTotal(rawLines);
+              const categories=financial.categories;
 
-              if(enhancementTotal>0.004){
-                const categories=financial.categories;
-                const labor=Number(categories.Labor||0);
-                const gameplay=Number(categories.Gameplay||0);
+              if(rawTotals.foundGameplay){
+                categories.Gameplay=Math.max(
+                  0,
+                  rawTotals.gameplayTotal-teamBuildingTotal
+                );
+                financial.detected=financial.detected||{};
 
-                if(labor<enhancementTotal-0.004&&gameplay>0.004){
-                  const move=Math.min(enhancementTotal,gameplay);
-                  categories.Gameplay=Math.max(0,gameplay-move);
-                  categories.Labor=labor+move;
+                if(categories.Gameplay>0.004){
+                  financial.detected.Gameplay=true;
+                }else{
+                  delete financial.detected.Gameplay;
+                }
+              }
 
-                  const original=financial.originalCategories||{...categories};
-                  original.Gameplay=Math.max(0,Number(original.Gameplay||0)-move);
-                  original.Labor=Number(original.Labor||0)+move;
-                  financial.originalCategories=original;
+              if(rawTotals.foundLabor||teamBuildingTotal>0.004){
+                categories.Labor=
+                  (rawTotals.foundLabor?rawTotals.laborTotal:0)+
+                  teamBuildingTotal;
+                financial.detected=financial.detected||{};
 
-                  financial.detected=financial.detected||{};
+                if(categories.Labor>0.004){
                   financial.detected.Labor=true;
-                  if(categories.Gameplay<0.005)delete financial.detected.Gameplay;
+                }else{
+                  delete financial.detected.Labor;
+                }
+              }
+
+              if(financial.originalCategories){
+                if(rawTotals.foundGameplay){
+                  financial.originalCategories.Gameplay=Math.max(
+                    0,
+                    rawTotals.gameplayTotal-teamBuildingTotal
+                  );
+                }
+
+                if(rawTotals.foundLabor||teamBuildingTotal>0.004){
+                  financial.originalCategories.Labor=
+                    (rawTotals.foundLabor?rawTotals.laborTotal:0)+
+                    teamBuildingTotal;
                 }
               }
             }
@@ -2446,6 +2469,36 @@
       return null;
     }
 
+    function extractGameplayLaborContractedTotals(lines){
+      let gameplayTotal=0;
+      let laborTotal=0;
+      let foundGameplay=false;
+      let foundLabor=false;
+
+      for(const rawLine of Array.isArray(lines)?lines:[]){
+        const line=clean(rawLine);
+        const m=line.match(
+          /^(Gameplay|Game\s*Enhancements?|Team\s*Building|Teambuilding|Labor)\s+TOTAL\s*:\s*USD\s*(-?[\d,.]+)/i
+        );
+
+        if(!m)continue;
+
+        const label=clean(m[1]);
+        const amount=Math.abs(parseMoney(m[2])||0);
+        const category=mapRevenueCategory(label);
+
+        if(category==="Gameplay"){
+          gameplayTotal+=amount;
+          foundGameplay=true;
+        }else if(category==="Labor"){
+          laborTotal+=amount;
+          foundLabor=true;
+        }
+      }
+
+      return{gameplayTotal,laborTotal,foundGameplay,foundLabor};
+    }
+
     function extractGameEnhancementContractedTotal(lines){
       let section="";
       let total=0;
@@ -2946,6 +2999,8 @@
         }
       }
 
+      const rawCategoryTotals=new Map();
+
       for(const rawLine of lines){
         const line=clean(rawLine);
         const m=line.match(
@@ -2958,6 +3013,13 @@
         const amount=Math.abs(parseMoney(m[2])||0);
         const category=mapRevenueCategory(rawLabel);
 
+        rawCategoryTotals.set(
+          category,
+          Number(rawCategoryTotals.get(category)||0)+amount
+        );
+      }
+
+      for(const [category,amount] of rawCategoryTotals){
         categories[category]=amount;
         detected[category]=true;
       }
