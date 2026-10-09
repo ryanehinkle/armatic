@@ -1378,15 +1378,30 @@
               const rawTotals=extractGameplayLaborContractedTotals(rawLines);
               const teamBuildingTotal=extractGameEnhancementContractedTotal(rawLines);
               const categories=financial.categories;
+              const incentives=financial.incentiveAdjustments||{};
+              const originals=financial.originalCategories||{...categories};
 
-              if(rawTotals.foundGameplay){
+              if(rawTotals.foundGameplay||rawTotals.foundGameEnhancement){
+                const gameplayOriginal=Math.max(
+                  0,
+                  Number(rawTotals.gameplaySectionTotal||0)+
+                  Number(rawTotals.gameEnhancementTotal||0)-
+                  teamBuildingTotal
+                );
+                const gameplayIncentive=
+                  Math.abs(Number(incentives.Gameplay||0));
+
+                originals.Gameplay=gameplayOriginal;
                 categories.Gameplay=Math.max(
                   0,
-                  rawTotals.gameplayTotal-teamBuildingTotal
+                  gameplayOriginal-gameplayIncentive
                 );
-                financial.detected=financial.detected||{};
 
-                if(categories.Gameplay>0.004){
+                financial.detected=financial.detected||{};
+                if(
+                  categories.Gameplay>0.004 ||
+                  gameplayIncentive>0.004
+                ){
                   financial.detected.Gameplay=true;
                 }else{
                   delete financial.detected.Gameplay;
@@ -1394,32 +1409,37 @@
               }
 
               if(rawTotals.foundLabor||teamBuildingTotal>0.004){
-                categories.Labor=
-                  (rawTotals.foundLabor?rawTotals.laborTotal:0)+
+                const laborOriginal=
+                  Number(rawTotals.laborSectionTotal||0)+
                   teamBuildingTotal;
-                financial.detected=financial.detected||{};
+                const laborIncentive=
+                  Math.abs(Number(incentives.Labor||0));
 
-                if(categories.Labor>0.004){
+                originals.Labor=laborOriginal;
+                categories.Labor=Math.max(
+                  0,
+                  laborOriginal-laborIncentive
+                );
+
+                financial.detected=financial.detected||{};
+                if(categories.Labor>0.004||laborIncentive>0.004){
                   financial.detected.Labor=true;
                 }else{
                   delete financial.detected.Labor;
                 }
               }
 
-              if(financial.originalCategories){
-                if(rawTotals.foundGameplay){
-                  financial.originalCategories.Gameplay=Math.max(
-                    0,
-                    rawTotals.gameplayTotal-teamBuildingTotal
-                  );
-                }
+              // Keep every incentive display internally consistent:
+              // original contracted amount = discounted amount + incentive.
+              for(const [label,rawAmount] of Object.entries(incentives)){
+                const amount=Math.abs(Number(rawAmount||0));
+                if(amount<0.005)continue;
 
-                if(rawTotals.foundLabor||teamBuildingTotal>0.004){
-                  financial.originalCategories.Labor=
-                    (rawTotals.foundLabor?rawTotals.laborTotal:0)+
-                    teamBuildingTotal;
-                }
+                originals[label]=
+                  Number(categories[label]||0)+amount;
               }
+
+              financial.originalCategories=originals;
             }
 
             if(group.toastData){
@@ -2470,9 +2490,11 @@
     }
 
     function extractGameplayLaborContractedTotals(lines){
-      let gameplayTotal=0;
-      let laborTotal=0;
+      let gameplaySectionTotal=0;
+      let gameEnhancementTotal=0;
+      let laborSectionTotal=0;
       let foundGameplay=false;
+      let foundGameEnhancement=false;
       let foundLabor=false;
 
       for(const rawLine of Array.isArray(lines)?lines:[]){
@@ -2483,20 +2505,29 @@
 
         if(!m)continue;
 
-        const label=clean(m[1]);
+        const label=clean(m[1]).toLowerCase();
         const amount=Math.abs(parseMoney(m[2])||0);
-        const category=mapRevenueCategory(label);
 
-        if(category==="Gameplay"){
-          gameplayTotal+=amount;
+        if(/^game\s*enhancements?$/.test(label)){
+          gameEnhancementTotal+=amount;
+          foundGameEnhancement=true;
+        }else if(label==="gameplay"){
+          gameplaySectionTotal+=amount;
           foundGameplay=true;
-        }else if(category==="Labor"){
-          laborTotal+=amount;
+        }else{
+          laborSectionTotal+=amount;
           foundLabor=true;
         }
       }
 
-      return{gameplayTotal,laborTotal,foundGameplay,foundLabor};
+      return{
+        gameplaySectionTotal,
+        gameEnhancementTotal,
+        laborSectionTotal,
+        foundGameplay,
+        foundGameEnhancement,
+        foundLabor
+      };
     }
 
     function extractGameEnhancementContractedTotal(lines){
@@ -2999,46 +3030,36 @@
         }
       }
 
-      const rawCategoryTotals=new Map();
-
-      for(const rawLine of lines){
-        const line=clean(rawLine);
-        const m=line.match(
-          /^(Food|Beverages?|Gameplay|Game\s*Enhancements?|Team\s*Building|Teambuilding|Retail|Labor|Limited\s+Inventory|Equipment\s+Rental|Event\s+Space\s+Rental|Space\s+Rental|Digital\s+Media)\s+TOTAL\s*:\s*USD\s*(-?[\d,.]+)/i
-        );
-
-        if(!m)continue;
-
-        const rawLabel=clean(m[1]);
-        const amount=Math.abs(parseMoney(m[2])||0);
-        const category=mapRevenueCategory(rawLabel);
-
-        rawCategoryTotals.set(
-          category,
-          Number(rawCategoryTotals.get(category)||0)+amount
-        );
-      }
-
-      for(const [category,amount] of rawCategoryTotals){
-        categories[category]=amount;
-        detected[category]=true;
-      }
-
+      const gameplayLaborTotals=extractGameplayLaborContractedTotals(lines);
       const teamBuildingContracted=extractGameEnhancementContractedTotal(lines);
 
-      if(teamBuildingContracted>0.004){
+      if(
+        gameplayLaborTotals.foundGameplay ||
+        gameplayLaborTotals.foundGameEnhancement
+      ){
         categories.Gameplay=Math.max(
           0,
-          Number(categories.Gameplay||0)-teamBuildingContracted
+          Number(gameplayLaborTotals.gameplaySectionTotal||0)+
+          Number(gameplayLaborTotals.gameEnhancementTotal||0)-
+          teamBuildingContracted
         );
-        categories.Labor=
-          Number(categories.Labor||0)+teamBuildingContracted;
 
-        detected.Labor=true;
-
-        if(categories.Gameplay<0.005){
-          categories.Gameplay=0;
+        if(categories.Gameplay>0.004){
+          detected.Gameplay=true;
+        }else{
           delete detected.Gameplay;
+        }
+      }
+
+      if(gameplayLaborTotals.foundLabor||teamBuildingContracted>0.004){
+        categories.Labor=
+          Number(gameplayLaborTotals.laborSectionTotal||0)+
+          teamBuildingContracted;
+
+        if(categories.Labor>0.004){
+          detected.Labor=true;
+        }else{
+          delete detected.Labor;
         }
       }
 
