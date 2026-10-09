@@ -1429,6 +1429,65 @@
                 }
               }
 
+              const equipmentMedia=extractEquipmentDigitalMediaTotals(rawLines);
+
+              if(
+                equipmentMedia.foundEquipmentSection ||
+                equipmentMedia.digitalFromEquipment>0.004
+              ){
+                const equipmentOriginal=Math.max(
+                  0,
+                  Number(equipmentMedia.equipmentSectionTotal||0)-
+                  Number(equipmentMedia.coachFromEquipment||0)-
+                  Number(equipmentMedia.digitalFromEquipment||0)
+                );
+                const equipmentIncentive=
+                  Math.abs(Number(incentives["Equipment Rental"]||0));
+
+                originals["Equipment Rental"]=equipmentOriginal;
+                categories["Equipment Rental"]=Math.max(
+                  0,
+                  equipmentOriginal-equipmentIncentive
+                );
+
+                financial.detected=financial.detected||{};
+                if(
+                  categories["Equipment Rental"]>0.004 ||
+                  equipmentIncentive>0.004
+                ){
+                  financial.detected["Equipment Rental"]=true;
+                }else{
+                  delete financial.detected["Equipment Rental"];
+                }
+              }
+
+              if(
+                equipmentMedia.foundDigitalSection ||
+                equipmentMedia.digitalFromEquipment>0.004
+              ){
+                const digitalOriginal=
+                  Number(equipmentMedia.explicitDigitalTotal||0)+
+                  Number(equipmentMedia.digitalFromEquipment||0);
+                const digitalIncentive=
+                  Math.abs(Number(incentives["Digital Media"]||0));
+
+                originals["Digital Media"]=digitalOriginal;
+                categories["Digital Media"]=Math.max(
+                  0,
+                  digitalOriginal-digitalIncentive
+                );
+
+                financial.detected=financial.detected||{};
+                if(
+                  categories["Digital Media"]>0.004 ||
+                  digitalIncentive>0.004
+                ){
+                  financial.detected["Digital Media"]=true;
+                }else{
+                  delete financial.detected["Digital Media"];
+                }
+              }
+
               // Keep every incentive display internally consistent:
               // original contracted amount = discounted amount + incentive.
               for(const [label,rawAmount] of Object.entries(incentives)){
@@ -2872,6 +2931,78 @@
       return /\bcoach\b|\binstruction\b|\binstructional\b/i.test(String(text||""));
     }
 
+    function isDigitalMediaInstructionText(text){
+      const x=String(text||"");
+
+      return(
+        /\bevent\s+media\b/i.test(x) ||
+        /\bdigital\s+media\b/i.test(x) ||
+        /\bmarketing\s+partnerships?\b/i.test(x) ||
+        /\bdigital\s+(?:bay\s+)?ads?\b/i.test(x) ||
+        /\badvertis(?:e|ing|ement|ements)\b/i.test(x)
+      );
+    }
+
+    function extractEquipmentDigitalMediaTotals(lines){
+      let section="";
+      let equipmentSectionTotal=0;
+      let explicitDigitalTotal=0;
+      let digitalFromEquipment=0;
+      let coachFromEquipment=0;
+      let foundEquipmentSection=false;
+      let foundDigitalSection=false;
+
+      for(const rawLine of Array.isArray(lines)?lines:[]){
+        const line=clean(rawLine);
+        const nextSection=detectProductSection(line);
+
+        if(nextSection){
+          section=nextSection;
+          continue;
+        }
+
+        const totalMatch=line.match(/^(.+?)\s+TOTAL\s*:\s*USD\s*(-?[\d,.]+)/i);
+
+        if(totalMatch){
+          const amount=Math.abs(parseMoney(totalMatch[2])||0);
+
+          if(section==="Equipment Rental"){
+            equipmentSectionTotal+=amount;
+            foundEquipmentSection=true;
+          }else if(section==="Digital Media"){
+            explicitDigitalTotal+=amount;
+            foundDigitalSection=true;
+          }
+
+          continue;
+        }
+
+        if(section!=="Equipment Rental")continue;
+
+        const item=extractLineItem(line,"Equipment Rental");
+        if(!item)continue;
+
+        const amount=item.printedTotal!==null
+          ?Math.max(0,Number(item.printedTotal)||0)
+          :Math.max(0,Number(item.computedTotal)||0);
+
+        if(isCoachInstructionText(item.line)){
+          coachFromEquipment+=amount;
+        }else if(isDigitalMediaInstructionText(item.line)){
+          digitalFromEquipment+=amount;
+        }
+      }
+
+      return{
+        equipmentSectionTotal,
+        explicitDigitalTotal,
+        digitalFromEquipment,
+        coachFromEquipment,
+        foundEquipmentSection,
+        foundDigitalSection
+      };
+    }
+
     function extractFinancials(lines,tags=[]){
       const categories={
         Food:0,
@@ -3232,6 +3363,37 @@
         categories["Equipment Rental"]=Math.max(
           0,
           Number(categories["Equipment Rental"]||0)-coachTotal
+        );
+
+        if(categories["Equipment Rental"]<0.005){
+          categories["Equipment Rental"]=0;
+          delete detected["Equipment Rental"];
+        }
+      }
+
+      let limitedInventoryDigitalMedia=0;
+
+      for(const item of lineItems){
+        if(item.section!=="Equipment Rental")continue;
+        if(isCoachInstructionText(item.line))continue;
+        if(!isDigitalMediaInstructionText(item.line))continue;
+
+        const amount=
+          item.printedTotal!==null
+            ?Math.max(0,Number(item.printedTotal)||0)
+            :Math.max(0,Number(item.computedTotal)||0);
+
+        limitedInventoryDigitalMedia+=amount;
+      }
+
+      if(limitedInventoryDigitalMedia>0.004){
+        categories["Digital Media"]=
+          Number(categories["Digital Media"]||0)+limitedInventoryDigitalMedia;
+        detected["Digital Media"]=true;
+
+        categories["Equipment Rental"]=Math.max(
+          0,
+          Number(categories["Equipment Rental"]||0)-limitedInventoryDigitalMedia
         );
 
         if(categories["Equipment Rental"]<0.005){
