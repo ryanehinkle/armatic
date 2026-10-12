@@ -1378,7 +1378,21 @@
               const rawTotals=extractGameplayLaborContractedTotals(rawLines);
               const teamBuildingTotal=extractGameEnhancementContractedTotal(rawLines);
               const categories=financial.categories;
-              const incentives=financial.incentiveAdjustments||{};
+              const savedIncentives=financial.incentiveAdjustments||{};
+              const refreshedIncentiveRecords=extractIncentiveRecords(rawLines);
+              const incentives=refreshedIncentiveRecords.length
+                ?refreshedIncentiveRecords.reduce((map,record)=>{
+                    const target=record?.target;
+                    const amount=Math.abs(Number(record?.amount||0));
+
+                    if(target&&amount>0.004){
+                      map[target]=(map[target]||0)+amount;
+                    }
+
+                    return map;
+                  },{})
+                :savedIncentives;
+              financial.incentiveAdjustments=incentives;
               const originals=financial.originalCategories||{...categories};
 
               if(rawTotals.foundGameplay||rawTotals.foundGameEnhancement){
@@ -2702,8 +2716,10 @@
       const x=String(text||"").toLowerCase();
 
       if(/\broom\s+rental\b|\bspace\s+rental\b/.test(x))return"Space Rental";
+      if(
+        /\bdigital\s+media\b|\bevent\s+media\b|\bmedia\s+discount\b|\bmedia\s+incentive\b|\bmarketing\s+partnerships?\b|\bmarketing\b/.test(x)
+      )return"Digital Media";
       if(/\bequipment\b|\blimited inventory\b/.test(x))return"Equipment Rental";
-      if(/\bdigital\s+media\b|\bmarketing\b/.test(x))return"Digital Media";
       if(/\blabor\b|\blabour\b|\bstaff\b/.test(x))return"Labor";
       if(/\bretail\b|\bmerch/.test(x))return"Retail";
       if(/\bbeverage\b|\bbar\b|\bdrink\b|\balcohol\b/.test(x))return"Beverages";
