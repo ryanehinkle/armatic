@@ -4929,6 +4929,7 @@
         "Equipment Rental":0,
         "Space Rental":0,
         "Digital Media":0,
+        Coach:0,
         Fees:0,
         "Other Fees":0,
         "Voluntary Tip":0,
@@ -5109,7 +5110,7 @@
       if(/^service\s+charge\b/.test(x))return"Service Charge";
       if(/^voluntary\s*tip\b|^voluntary\s+gratuity\b|^gratuity\b/.test(x))return"Voluntary Tip";
       if(/^events?\s*-\s*fees?\b|^events?\s+fees?\b|^fees?\b/.test(x))return"Fees";
-      if(/^coach\b/.test(x))return"Other Fees";
+      if(/^coach\b/.test(x))return"Coach";
 
       return null;
     }
