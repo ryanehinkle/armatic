@@ -258,9 +258,10 @@
     .ar-replace.visible{display:inline-block}
 
     .empty-events{display:none;padding:28px;border:1px dashed #34343b;border-radius:12px;color:#85858f;text-align:center}
-    .pdf-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:flex-start;justify-content:center;gap:12px;padding:44px 10px 10px;background:rgba(3,3,5,.76);backdrop-filter:blur(8px)}
-    .pdf-modal.open{display:flex}
-    .preview-shell{position:relative;width:min(96vw,1680px);max-height:calc(100vh - 54px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden}
+    .pdf-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-start;justify-content:center;gap:12px;padding:44px 10px 10px;background:rgba(3,3,5,.76);backdrop-filter:blur(0);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,visibility 0s linear .23s,backdrop-filter .2s ease}
+    .pdf-modal.open{opacity:1;visibility:visible;pointer-events:auto;backdrop-filter:blur(8px);transition-delay:0s}
+    .preview-shell{position:relative;width:min(96vw,1680px);max-height:calc(100vh - 54px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);border:1px solid #3b3b43;border-radius:14px;background:#18181c;box-shadow:0 28px 90px rgba(0,0,0,.64);overflow:hidden;transform:translateY(10px) scale(.985);transition:transform .23s cubic-bezier(.2,.8,.2,1)}
+    .pdf-modal.open .preview-shell{transform:translateY(0) scale(1)}
     .preview-shell.no-recap{width:min(58vw,900px);grid-template-columns:minmax(0,1fr)}
     .preview-shell.no-recap .preview-header{grid-template-columns:minmax(0,1fr)}
     .preview-shell.no-recap .preview-side-title:first-child{border-right:0}
@@ -454,7 +455,11 @@
       </header>
       <div class="updates-scroll" tabindex="0" aria-label="Update history">
         <article class="updates-entry">
-          <div class="updates-entry-title">Enter key toggles an event's Entered checkbox</div>
+          <div class="updates-entry-title">Added event preview opening and closing animations</div>
+        <div class="updates-entry-date">October 24, 2026</div>
+      </article>
+      <article class="updates-entry">
+        <div class="updates-entry-title">Enter key toggles an event's Entered checkbox</div>
           <div class="updates-entry-date">October 24, 2026</div>
         </article>
         <article class="updates-entry">
@@ -677,6 +682,7 @@
     let recapRenderTask=null;
     let modalPreviewRenderId=0;
     let recapPreviewRenderId=0;
+    let previewCloseTimer=null;
     const previewPageCache=new Map();
     let currentSourceBytes=null;
     let currentSourcePdfJs=null;
@@ -6471,6 +6477,10 @@
       group=null,
       initialPage=1
     ){
+      if(previewCloseTimer!==null){
+        clearTimeout(previewCloseTimer);
+        previewCloseTimer=null;
+      }
       activePreviewPdf=pdf;
       activePreviewPage=Math.min(Math.max(1,initialPage),pdf?.numPages||1);
       activePreviewRecapPdf=recapPdf;
@@ -6689,11 +6699,18 @@
       activePreviewRecapPages=[];
       activePreviewRecapPageIndex=0;
       activePreviewGroupIndex=-1;
-      modalEventToastLink.hidden=true;
-      modalEventToastLink.removeAttribute("href");
-      pdfModal.classList.remove("has-recap");
-      previewShell?.classList.remove("no-recap");
-      recapPane.style.display="none";
+      // Keep the rendered preview intact until its scale/fade-out completes.
+      // Otherwise the recap column collapses while the modal is still visible.
+      if(previewCloseTimer!==null)clearTimeout(previewCloseTimer);
+      previewCloseTimer=setTimeout(()=>{
+        previewCloseTimer=null;
+        if(pdfModal.classList.contains("open"))return;
+        modalEventToastLink.hidden=true;
+        modalEventToastLink.removeAttribute("href");
+        pdfModal.classList.remove("has-recap");
+        previewShell?.classList.remove("no-recap");
+        recapPane.style.display="none";
+      },240);
       if(modalRenderTask){try{modalRenderTask.cancel()}catch(_){}modalRenderTask=null}
       if(recapRenderTask){try{recapRenderTask.cancel()}catch(_){}recapRenderTask=null}
     }
