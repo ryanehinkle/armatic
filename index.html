@@ -300,6 +300,27 @@
     @media(max-width:900px){.events-head{grid-template-columns:1fr auto;gap:14px}.portfolio-sales{grid-column:1/-1;grid-row:1;min-width:0}.events-title-group{grid-column:1;grid-row:2}.events-actions{grid-column:2;grid-row:2}}
     @media(max-width:700px){.events-grid{grid-template-columns:1fr}.add-event-slot{grid-column:1}.event-preview{height:220px}.events-head{grid-template-columns:1fr;align-items:center}.portfolio-sales,.events-title-group,.events-actions{grid-column:1;justify-self:center}.portfolio-sales{grid-row:1}.events-title-group{grid-row:2;width:100%;justify-content:center}.events-actions{grid-row:3;width:100%;justify-content:center}.events-progress{min-width:0}.events-progress-track{width:90px}}
 
+
+    /* Small header updates button and scrollable release history */
+    .updates-button{width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border:1px solid #44444b;border-radius:10px;background:#242429;color:#bfc5cd;cursor:pointer;transition:background .16s ease,border-color .16s ease,color .16s ease,transform .16s ease,box-shadow .16s ease}
+    .updates-button svg{width:19px;height:19px;display:block}
+    .updates-button:hover,.updates-button:focus-visible{background:#2e2e34;border-color:#5a5a63;color:#fff;transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.18);outline:none}
+    .updates-button:active{transform:translateY(0)}
+    .updates-modal{position:fixed;inset:0;z-index:1100;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(3,3,5,.74);backdrop-filter:blur(0);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,visibility 0s linear .2s,backdrop-filter .2s ease}
+    .updates-modal.open{opacity:1;visibility:visible;pointer-events:auto;backdrop-filter:blur(7px);transition-delay:0s}
+    .updates-panel{width:min(100%,520px);max-height:min(76vh,690px);min-height:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid #383840;border-radius:14px;background:#18181c;box-shadow:0 28px 80px rgba(0,0,0,.56);transform:translateY(10px) scale(.985);transition:transform .23s cubic-bezier(.2,.8,.2,1)}
+    .updates-modal.open .updates-panel{transform:translateY(0) scale(1)}
+    .updates-panel-header{display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;padding:14px 16px 14px 20px;border-bottom:1px solid #303037;background:#1b1b1f}
+    .updates-panel-title{font-size:.96rem;font-weight:850;letter-spacing:.005em;color:#ededf1}
+    .updates-close{width:31px;height:31px;font-size:1.1rem;line-height:1}
+    .updates-scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#46464d transparent;outline:none}
+    .updates-scroll:focus-visible{outline:2px solid #6f9fd1;outline-offset:-3px}
+    .updates-entry{padding:14px 20px 13px;border-bottom:1px solid #2c2c33;transition:background .14s ease}
+    .updates-entry:last-child{border-bottom:0}
+    .updates-entry:hover{background:#202027}
+    .updates-entry-title{color:#e0e0e6;font-size:.79rem;font-weight:750;line-height:1.4}
+    .updates-entry-date{margin-top:5px;color:#868690;font-size:.69rem;font-weight:700}
+    @media(max-width:480px){.updates-modal{padding:12px}.updates-panel{max-height:82vh}.updates-entry{padding:13px 16px}.updates-panel-header{padding:12px 14px 12px 16px}.app-header-actions{gap:7px}.header-action-button{min-width:0}}
   </style>
 </head>
 <body>
@@ -360,6 +381,13 @@
       <div class="app-header-actions">
         <button id="saveSessionButton" class="header-action-button" type="button">Save</button>
         <button id="newFileButton" class="header-action-button" type="button">Upload new</button>
+        <button id="updatesButton" class="updates-button" type="button" aria-label="Open updates" aria-haspopup="dialog" aria-expanded="false" title="Updates">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 5.5h14v12.25A2.25 2.25 0 0 1 15.75 20H6.25A2.25 2.25 0 0 1 4 17.75V5.5Z"/>
+            <path d="M18 8h2v9.75A2.25 2.25 0 0 1 17.75 20H16"/>
+            <path d="M7.5 9h7M7.5 12h7M7.5 15h4"/>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -417,6 +445,101 @@
     <div id="eventsGrid" class="events-grid"></div>
     <div id="emptyEvents" class="empty-events">No events could be identified in this PDF.</div>
   </main>
+
+  <div id="updatesModal" class="updates-modal" aria-hidden="true">
+    <section class="updates-panel" role="dialog" aria-modal="true" aria-labelledby="updatesTitle" tabindex="-1">
+      <header class="updates-panel-header">
+        <h2 id="updatesTitle" class="updates-panel-title">Updates</h2>
+        <button id="updatesClose" class="modal-button updates-close" type="button" aria-label="Close updates">×</button>
+      </header>
+      <div class="updates-scroll" tabindex="0" aria-label="Update history">
+        <article class="updates-entry">
+          <div class="updates-entry-title">Enter key toggles an event's Entered checkbox</div>
+          <div class="updates-entry-date">October 24, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added support for arrow keying through events</div>
+          <div class="updates-entry-date">October 24, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Fixed Coach charges from Toast screenshots</div>
+          <div class="updates-entry-date">October 20, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Fixed Digital Media incentives</div>
+          <div class="updates-entry-date">October 12, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added Live Leaderboard revenue support</div>
+          <div class="updates-entry-date">October 9, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Fixed Team Building labor totals</div>
+          <div class="updates-entry-date">October 8, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added event type filters</div>
+          <div class="updates-entry-date">October 6, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added Net amount w/ AR</div>
+          <div class="updates-entry-date">October 5, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Fixed total sales to include subtotals and AR</div>
+          <div class="updates-entry-date">October 5, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added red ink detection for event recaps</div>
+          <div class="updates-entry-date">October 5, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added synced Entered checkbox to previews</div>
+          <div class="updates-entry-date">October 3, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added Game User flag</div>
+          <div class="updates-entry-date">October 3, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Combined BEO and recap previews</div>
+          <div class="updates-entry-date">October 3, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added AR notes to BEO previews</div>
+          <div class="updates-entry-date">October 3, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Fixed voluntary gratuity double counting</div>
+          <div class="updates-entry-date">October 1, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added saving and loading .armatic sessions</div>
+          <div class="updates-entry-date">September 28, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added PDF and .armatic uploads</div>
+          <div class="updates-entry-date">September 28, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added recap opportunity detection</div>
+          <div class="updates-entry-date">September 28, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added Topgolf screensaver</div>
+          <div class="updates-entry-date">September 28, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Added event Entered checkboxes and progress bar</div>
+          <div class="updates-entry-date">September 26, 2026</div>
+        </article>
+        <article class="updates-entry">
+          <div class="updates-entry-title">Linked event cards to Toast</div>
+          <div class="updates-entry-date">September 26, 2026</div>
+        </article>
+      </div>
+    </section>
+  </div>
 
   <div id="enteredProgressFloat" class="entered-progress-float" aria-live="polite" aria-hidden="true">
     <div class="entered-progress-head">
@@ -494,6 +617,47 @@
     const {PDFDocument,rgb,StandardFonts}=window.PDFLib;
     const $=(id)=>document.getElementById(id);
     const pdfInput=$("pdfInput"),toastCsvInput=$("toastCsvInput"),recapPdfInput=$("recapPdfInput"),landing=$("landing"),app=$("app"),uploadButton=$("uploadButton"),newFileButton=$("newFileButton"),saveSessionButton=$("saveSessionButton"),uploadZone=$("uploadZone"),landingError=$("landingError"),appBrand=$("appBrand"),fileName=$("fileName"),fileMeta=$("fileMeta"),terminal=$("terminal"),status=$("status"),scanProgressBar=$("scanProgressBar"),eventsGrid=$("eventsGrid"),eventCount=$("eventCount"),eventFilterWrap=$("eventFilterWrap"),eventFilterButton=$("eventFilterButton"),eventFilterMenu=$("eventFilterMenu"),eventFilterClear=$("eventFilterClear"),eventFilterOptions=$("eventFilterOptions"),eventsProgressBar=$("eventsProgressBar"),eventsProgressText=$("eventsProgressText"),enteredProgressFloat=$("enteredProgressFloat"),enteredProgressBar=$("enteredProgressBar"),enteredProgressText=$("enteredProgressText"),portfolioSalesLink=$("portfolioSalesLink"),portfolioSalesValue=$("portfolioSalesValue"),portfolioSalesDate=$("portfolioSalesDate"),gameUserFlag=$("gameUserFlag"),recapUploadButton=$("recapUploadButton"),toastUploadButton=$("toastUploadButton"),exportButton=$("exportButton"),emptyEvents=$("emptyEvents"),pdfModal=$("pdfModal"),previewShell=document.querySelector(".preview-shell"),previewEnteredStrip=$("previewEnteredStrip"),previewEnteredCheck=$("previewEnteredCheck"),previewEnteredBar=$("previewEnteredBar"),previewEnteredText=$("previewEnteredText"),modalEventName=$("modalEventName"),modalEventToastLink=$("modalEventToastLink"),modalBody=$("modalBody"),recapPane=$("recapPane"),prevPage=$("prevPage"),nextPage=$("nextPage"),prevRecapPage=$("prevRecapPage"),nextRecapPage=$("nextRecapPage"),recapPageCounter=$("recapPageCounter"),prevEvent=$("prevEvent"),nextEvent=$("nextEvent"),pageCounter=$("pageCounter"),modalClose=$("modalClose"),modalCanvas=$("modalCanvas"),modalLoading=$("modalLoading"),recapCanvas=$("recapCanvas"),recapLoading=$("recapLoading");
+    const updatesButton=$("updatesButton");
+    const updatesModal=$("updatesModal");
+    const updatesClose=$("updatesClose");
+    const updatesPanel=updatesModal.querySelector(".updates-panel");
+    let updatesPreviousFocus=null;
+    function openUpdates(){
+      if(updatesModal.classList.contains("open"))return;
+      updatesPreviousFocus=document.activeElement;
+      updatesModal.classList.add("open");
+      updatesModal.setAttribute("aria-hidden","false");
+      updatesButton.setAttribute("aria-expanded","true");
+      document.body.style.overflow="hidden";
+      updatesClose.focus();
+    }
+    function closeUpdates(){
+      if(!updatesModal.classList.contains("open"))return;
+      updatesModal.classList.remove("open");
+      updatesModal.setAttribute("aria-hidden","true");
+      updatesButton.setAttribute("aria-expanded","false");
+      if(!pdfModal.classList.contains("open"))document.body.style.overflow="";
+      (updatesPreviousFocus?.isConnected?updatesPreviousFocus:updatesButton).focus();
+    }
+    updatesButton.addEventListener("click",openUpdates);
+    updatesClose.addEventListener("click",closeUpdates);
+    updatesModal.addEventListener("click",event=>{
+      if(event.target===updatesModal)closeUpdates();
+    });
+    updatesModal.addEventListener("keydown",event=>{
+      if(!updatesModal.classList.contains("open"))return;
+      if(event.key==="Escape"){
+        event.preventDefault();
+        event.stopPropagation();
+        closeUpdates();
+      }else if(event.key==="Tab"){
+        const focusables=[updatesClose,...updatesPanel.querySelectorAll('[tabindex="0"]')];
+        const current=focusables.indexOf(document.activeElement);
+        if(event.shiftKey&&current===0){event.preventDefault();focusables.at(-1).focus()}
+        if(!event.shiftKey&&current===focusables.length-1){event.preventDefault();focusables[0].focus()}
+      }
+    });
+
     const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
     const floatingTopgolfLogo=$("floatingTopgolfLogo");
     const landingCard=document.querySelector(".landing-card");
@@ -6534,27 +6698,24 @@
       if(recapRenderTask){try{recapRenderTask.cancel()}catch(_){}recapRenderTask=null}
     }
 
-    previewEnteredCheck.addEventListener("click",(event)=>{
-      event.preventDefault();
-      event.stopPropagation();
-
+    function togglePreviewEntered(){
       const group=currentGroups[activePreviewGroupIndex];
       if(!group?.parsed)return;
-
-      const entered=!getEventEntered(
-        group.parsed.eventCard,
-        group.parsed.date
-      );
-
       setEventEntered(
         group.parsed.eventCard,
         group.parsed.date,
-        entered
+        !getEventEntered(group.parsed.eventCard,group.parsed.date)
       );
       updateEnteredProgress();
+    }
+
+    previewEnteredCheck.addEventListener("click",(event)=>{
+      event.preventDefault();
+      event.stopPropagation();
+      togglePreviewEntered();
     });
 
-        function hasAdjacentPreviewEvent(direction){
+    function hasAdjacentPreviewEvent(direction){
       return activePreviewGroupIndex>=0 &&
         activePreviewGroupIndex+direction>=0 &&
         activePreviewGroupIndex+direction<currentGroups.length;
@@ -6607,8 +6768,18 @@
     modalClose.addEventListener("click",closePreview);
     pdfModal.addEventListener("click",e=>{if(e.target===pdfModal)closePreview()});
     document.addEventListener("keydown",e=>{
-      if(!pdfModal.classList.contains("open"))return;
-      if(e.key==="Escape")closePreview();
+      if(!pdfModal.classList.contains("open")||updatesModal.classList.contains("open"))return;
+      if(e.key==="Escape"){closePreview();return}
+      if(e.key==="Enter"&&!e.repeat&&!e.ctrlKey&&!e.altKey&&!e.metaKey){
+        // Keep keyboard activation of focused links, inputs and tabbed controls intact.
+        const target=e.target;
+        const interactive=target?.closest?.('a,input,textarea,select,[contenteditable="true"]');
+        if(!interactive&&!(target instanceof HTMLButtonElement&&target.matches(":focus-visible"))){
+          e.preventDefault();
+          togglePreviewEntered();
+          return;
+        }
+      }
       if(e.shiftKey&&e.key==="ArrowLeft"){e.preventDefault();openAdjacentEvent(-1);return}
       if(e.shiftKey&&e.key==="ArrowRight"){e.preventDefault();openAdjacentEvent(1);return}
       if(e.key==="ArrowLeft"){e.preventDefault();navigatePreviewPage(-1)}
