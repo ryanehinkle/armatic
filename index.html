@@ -511,6 +511,8 @@
     let activePreviewGroupIndex=-1;
     let modalRenderTask=null;
     let recapRenderTask=null;
+    let modalPreviewRenderId=0;
+    let recapPreviewRenderId=0;
     const previewPageCache=new Map();
     let currentSourceBytes=null;
     let currentSourcePdfJs=null;
@@ -6302,10 +6304,11 @@
       opportunityId=null,
       recapPdf=null,
       recapPages=null,
-      group=null
+      group=null,
+      initialPage=1
     ){
       activePreviewPdf=pdf;
-      activePreviewPage=1;
+      activePreviewPage=Math.min(Math.max(1,initialPage),pdf?.numPages||1);
       activePreviewRecapPdf=recapPdf;
       activePreviewRecapPages=Array.isArray(recapPages)
         ?recapPages.filter(Number.isInteger)
@@ -6395,9 +6398,12 @@
         pdfModal.classList.contains("has-recap")&&
         innerWidth>900;
 
-      prevPage.disabled=activePreviewPage<=1;
-      nextPage.disabled=activePreviewPage>=activePreviewPdf.numPages;
+      prevPage.disabled=activePreviewPage<=1&&!hasAdjacentPreviewEvent(-1);
+      nextPage.disabled=activePreviewPage>=activePreviewPdf.numPages&&!hasAdjacentPreviewEvent(1);
       pageCounter.textContent=activePreviewPage+" of "+activePreviewPdf.numPages;
+      const renderId=++modalPreviewRenderId;
+      const pdf=activePreviewPdf;
+      const pageNumber=activePreviewPage;
 
       if(modalRenderTask){
         try{modalRenderTask.cancel()}catch(_){}
@@ -6408,11 +6414,12 @@
         const widthLimit=sideBySide?innerWidth*.47:innerWidth*.90;
         const heightLimit=innerHeight*.84;
         const cached=await getCachedPreviewBitmap(
-          activePreviewPdf,
-          activePreviewPage,
+          pdf,
+          pageNumber,
           widthLimit,
           heightLimit
         );
+        if(renderId!==modalPreviewRenderId)return;
         const ctx=modalCanvas.getContext("2d");
 
         modalCanvas.width=cached.canvas.width;
@@ -6427,20 +6434,21 @@
 
         // Warm the neighboring BEO page while this one is visible.
         const neighbor=
-          activePreviewPage<activePreviewPdf.numPages
-            ? activePreviewPage+1
-            : activePreviewPage>1
-              ? activePreviewPage-1
+          pageNumber<pdf.numPages
+            ? pageNumber+1
+            : pageNumber>1
+              ? pageNumber-1
               : null;
         if(neighbor){
           getCachedPreviewBitmap(
-            activePreviewPdf,
+            pdf,
             neighbor,
             widthLimit,
             heightLimit
           ).catch(()=>{});
         }
       }catch(err){
+        if(renderId!==modalPreviewRenderId)return;
         console.error(err);
         modalLoading.style.display="block";
         modalCanvas.style.display="none";
@@ -6448,6 +6456,7 @@
     }
 
     async function renderRecapPreview(){
+      const renderId=++recapPreviewRenderId;
       activePreviewRecapPage=activePreviewRecapPages[activePreviewRecapPageIndex]||null;
       prevRecapPage.disabled=activePreviewRecapPageIndex<=0;
       nextRecapPage.disabled=activePreviewRecapPageIndex>=activePreviewRecapPages.length-1;
@@ -6483,6 +6492,7 @@
           widthLimit,
           heightLimit
         );
+        if(renderId!==recapPreviewRenderId)return;
         const ctx=recapCanvas.getContext("2d");
 
         recapCanvas.width=cached.canvas.width;
@@ -6495,6 +6505,7 @@
         recapLoading.style.display="none";
         recapCanvas.style.display="block";
       }catch(err){
+        if(renderId!==recapPreviewRenderId)return;
         console.error(err);
         recapLoading.style.display="block";
         recapCanvas.style.display="none";
@@ -6502,6 +6513,8 @@
     }
 
     function closePreview(){
+      modalPreviewRenderId++;
+      recapPreviewRenderId++;
       pdfModal.classList.remove("open");
       pdfModal.setAttribute("aria-hidden","true");
       document.body.style.overflow="";
@@ -6541,22 +6554,40 @@
       updateEnteredProgress();
     });
 
-        prevPage.addEventListener("click",()=>{if(activePreviewPdf&&activePreviewPage>1){activePreviewPage--;renderModalPage()}});
-    nextPage.addEventListener("click",()=>{if(activePreviewPdf&&activePreviewPage<activePreviewPdf.numPages){activePreviewPage++;renderModalPage()}});
+        function hasAdjacentPreviewEvent(direction){
+      return activePreviewGroupIndex>=0 &&
+        activePreviewGroupIndex+direction>=0 &&
+        activePreviewGroupIndex+direction<currentGroups.length;
+    }
 
-    async function openAdjacentEvent(direction){
-      if(activePreviewGroupIndex<0)return;
-      const targetIndex=activePreviewGroupIndex+direction;
-      if(targetIndex<0||targetIndex>=currentGroups.length)return;
+    function navigatePreviewPage(direction){
+      if(!activePreviewPdf)return;
+      const targetPage=activePreviewPage+direction;
+      if(targetPage>=1&&targetPage<=activePreviewPdf.numPages){
+        activePreviewPage=targetPage;
+        renderModalPage();
+      }else if(hasAdjacentPreviewEvent(direction)){
+        // Continue across events once we reach the beginning or end of the BEO.
+        openAdjacentEvent(direction,direction<0);
+      }
+    }
 
-      const group=currentGroups[targetIndex];
+    prevPage.addEventListener("click",()=>navigatePreviewPage(-1));
+    nextPage.addEventListener("click",()=>navigatePreviewPage(1));
+
+    async function openAdjacentEvent(direction,openLastPage=false){
+      if(!hasAdjacentPreviewEvent(direction))return;
+      const group=currentGroups[activePreviewGroupIndex+direction];
+      const pdf=group.previewPdf||group.pdf;
+      if(!pdf)return;
       await openPreview(
-        group.previewPdf||group.pdf,
+        pdf,
         group.parsed?.fullTitle||group.parsed?.name||"Event BEO",
         group.parsed?.opportunityId||null,
         group.recapPdf||null,
         group.recapPageNumbers?.length?group.recapPageNumbers:(group.recapPageNumber||null),
-        group
+        group,
+        openLastPage?pdf.numPages:1
       );
     }
 
@@ -6578,10 +6609,10 @@
     document.addEventListener("keydown",e=>{
       if(!pdfModal.classList.contains("open"))return;
       if(e.key==="Escape")closePreview();
-      if(e.shiftKey&&e.key==="ArrowLeft"){openAdjacentEvent(-1);return}
-      if(e.shiftKey&&e.key==="ArrowRight"){openAdjacentEvent(1);return}
-      if(e.key==="ArrowLeft"&&activePreviewPage>1){activePreviewPage--;renderModalPage()}
-      if(e.key==="ArrowRight"&&activePreviewPdf&&activePreviewPage<activePreviewPdf.numPages){activePreviewPage++;renderModalPage()}
+      if(e.shiftKey&&e.key==="ArrowLeft"){e.preventDefault();openAdjacentEvent(-1);return}
+      if(e.shiftKey&&e.key==="ArrowRight"){e.preventDefault();openAdjacentEvent(1);return}
+      if(e.key==="ArrowLeft"){e.preventDefault();navigatePreviewPage(-1)}
+      if(e.key==="ArrowRight"){e.preventDefault();navigatePreviewPage(1)}
     });
 
     async function extractLines(page){
