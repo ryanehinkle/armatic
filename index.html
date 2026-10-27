@@ -455,6 +455,10 @@
       </header>
       <div class="updates-scroll" tabindex="0" aria-label="Update history">
         <article class="updates-entry">
+          <div class="updates-entry-title">Fixed false opportunity flags from recap titles</div>
+          <div class="updates-entry-date">October 27, 2026</div>
+        </article>
+        <article class="updates-entry">
           <div class="updates-entry-title">Added event preview opening and closing animations</div>
         <div class="updates-entry-date">October 24, 2026</div>
       </article>
@@ -1955,6 +1959,14 @@
     // ink (expanded slightly for scanner drift), so only NEW ink is considered.
     const opportunityHeaderTemplateSpans=[[],[],[],[],[],[],[],[[15,23],[574,583]],[[14,24],[574,584]],[[14,24],[574,584]],[[13,24],[574,585]],[[13,24],[574,585]],[[13,24],[574,585]],[[13,24],[574,585]],[[13,24],[574,585]],[[13,24],[574,585]],[[13,24],[574,585]],[[13,23],[575,585]],[[13,22],[575,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[576,585]],[[13,22],[216,234],[291,308],[576,585]],[[13,22],[216,235],[291,310],[576,585]],[[13,22],[216,235],[272,285],[291,312],[576,585]],[[13,22],[216,235],[272,285],[291,312],[576,585]],[[13,22],[216,235],[272,285],[291,313],[576,585]],[[13,22],[216,235],[272,285],[291,313],[576,585]],[[13,22],[216,235],[272,285],[291,313],[576,585]],[[13,22],[216,287],[291,370],[576,585]],[[13,22],[216,287],[291,371],[576,585]],[[13,22],[216,287],[291,371],[576,585]],[[13,22],[216,287],[291,371],[576,585]],[[13,22],[216,287],[291,371],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,287],[291,372],[576,585]],[[13,22],[216,285],[291,372],[576,585]],[[13,22],[216,285],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,372],[576,585]],[[13,22],[216,288],[291,371],[576,585]],[[13,22],[216,288],[291,371],[576,585]],[[13,22],[216,288],[291,371],[576,585]],[[13,22],[216,288],[291,370],[576,585]],[[13,22],[171,186],[188,543],[576,585]],[[13,22],[55,543],[576,585]],[[13,22],[55,543],[576,585]],[[13,22],[55,543],[576,585]],[[13,22],[55,543],[576,585]],[[13,22],[55,543],[576,585]]];
 
+    // The centered "Event Recap" heading is printed ink, not handwriting.
+    // Exclude its full column so font changes, scanner drift, and the border
+    // around the title cannot create false positives. The open left/right
+    // margins remain eligible for stars, notes, and other opportunity marks.
+    function opportunityTitleCovers(x){
+      return x>=195&&x<=405;
+    }
+
     function opportunityTemplateCovers(x,y){
       const spans=opportunityHeaderTemplateSpans[y];
       if(!spans)return false;
@@ -1997,7 +2009,7 @@
 
       for(let y=0;y<roiHeight;y++){
         for(let x=45;x<555;x++){
-          if(y>=58&&x>=205&&x<=395)continue;
+          if(opportunityTitleCovers(x))continue;
           if(opportunityTemplateCovers(x,y))continue;
 
           const i=(y*width+x)*4;
@@ -2066,7 +2078,7 @@
               const nx=x+dx;
               const ny=y+dy;
               if(nx<45||nx>=555||ny<0||ny>=roiHeight)continue;
-              if(ny>=58&&nx>=205&&nx<=395)continue;
+              if(opportunityTitleCovers(nx))continue;
 
               const ni=ny*width+nx;
               if(!redCandidate[ni]||redVisited[ni])continue;
@@ -2164,7 +2176,7 @@
               const ny=y+dy;
 
               if(nx<45||nx>=555||ny<0||ny>=roiHeight)continue;
-              if(ny>=58&&nx>=205&&nx<=395)continue;
+              if(opportunityTitleCovers(nx))continue;
 
               const ni=ny*width+nx;
               if(!filtered[ni]||visited[ni])continue;
