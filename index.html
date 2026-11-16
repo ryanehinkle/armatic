@@ -229,6 +229,7 @@
     .ar-total.negative,.ar-total.negative span,.ar-total.negative strong{color:#ee8b8b}
     .ar-item-detail{margin-top:2px;color:#777f88;font-size:.59rem;font-weight:650}
     .ar-item.food{border-left-color:#8dc6f1}.ar-item.food .ar-item-label{color:#9dcef1}
+    .ar-item.donations{border-left-color:#d8ae74}.ar-item.donations .ar-item-label{color:#dfb982}
     .ar-item.beverages{border-left-color:#78b6df}.ar-item.beverages .ar-item-label{color:#91c8ec}
     .ar-item.lbw{border-left-color:#ef9dbd}.ar-item.lbw .ar-item-label{color:#f0a9c4}
     .ar-item.na{border-left-color:#7fd5d0}.ar-item.na .ar-item-label{color:#92ddd8}
@@ -454,6 +455,10 @@
         <button id="updatesClose" class="modal-button updates-close" type="button" aria-label="Close updates">×</button>
       </header>
       <div class="updates-scroll" tabindex="0" aria-label="Update history">
+        <article class="updates-entry">
+          <div class="updates-entry-title">Fixed Food and Donations from Toast screenshots</div>
+          <div class="updates-entry-date">November 16, 2026</div>
+        </article>
         <article class="updates-entry">
           <div class="updates-entry-title">Fixed false opportunity flags from recap titles</div>
           <div class="updates-entry-date">October 27, 2026</div>
@@ -4641,6 +4646,7 @@
       if(x==="beer"||x==="liquor"||x==="wine")return"LBW";
       if(x==="n/a bev"||x==="na bev"||x==="non-alcoholic"||x==="non alcoholic")return"NA";
       if(x==="food")return"Food";
+      if(x==="donations"||x==="donation")return"Donations";
       if(x==="game play"||x==="gameplay")return"Gameplay";
       if(x==="event drink package"||x==="drink package"||x==="beverage package")return"Beverages";
       if(x==="admin fee")return"Admin Fee";
@@ -4667,6 +4673,7 @@
     function makeToastDataFromCsvRows(rows){
       const totals={
         Food:0,
+        Donations:0,
         Beverages:0,
         LBW:0,
         NA:0,
@@ -5104,6 +5111,7 @@
     function parseToastSales(text){
       const totals={
         Food:0,
+        Donations:0,
         Beverages:0,
         LBW:0,
         NA:0,
@@ -5129,7 +5137,8 @@
         .trim();
 
       const categories=[
-        {label:"Food",patterns:[/\bFood\b/i]},
+        {label:"Food",patterns:[/\bF[o0c][o0]d\b/i,/\bF\s+ood\b/i]},
+        {label:"Donations",patterns:[/\bDonat[i1l][o0]ns?\b/i]},
         {label:"Beverages",patterns:[/\bEvent\s+Drink\s+Package\b/i,/\bDrink\s+Package\b/i,/\bBeverage\s+Package\b/i]},
         {label:"Gameplay",patterns:[/\bGame\s*Play\b/i,/\bGameplay\b/i]},
         {label:"Equipment Rental",patterns:[/\bEvent\s*[-–—]?\s*Equipment\s+Rental\b/i,/\bEquipment\s+Rental\b/i]},
@@ -5170,6 +5179,10 @@
         const next=hits[i+1];
         const end=next?next.index:Math.min(flat.length,hit.index+240);
         const segment=flat.slice(hit.index+hit.length,end);
+
+        // These two short rows use their own row-bounded parser below.
+        // Flat matching can otherwise mistake a later Total for Food.
+        if(hit.label==="Food"||hit.label==="Donations")continue;
 
         const amounts=extractToastAmounts(segment);
         if(!amounts.length)continue;
@@ -5219,6 +5232,17 @@
         recognized.add(category);
       }
 
+      // Recover these rows without borrowing values from neighboring
+      // categories, even if OCR loses a currency sign or spaces the label.
+      for(const row of rows){
+        const label=mapToastFoodDonationRow(row);
+        if(!label)continue;
+        const amounts=extractToastFoodDonationRowAmounts(row,label);
+        if(!amounts.length)continue;
+        totals[label]=amounts[0];
+        recognized.add(label);
+      }
+
       const lbw=extractToastLBW(source,flat);
 
       if(lbw.count>0){
@@ -5241,7 +5265,7 @@
       // slightly misread alcohol row from producing a partial/wrong LBW total.
       if(totalNetSales!==null&&hasAllAlcoholLabels(source)){
         const nonAlcoholLabels=[
-          "Food","Beverages","NA","Gameplay","Retail","Labor",
+          "Food","Donations","Beverages","NA","Gameplay","Retail","Labor",
           "Equipment Rental","Space Rental","Digital Media","Coach",
           "Fees","Other Fees","Voluntary Tip","Service Charge","Admin Fee"
         ];
@@ -5261,7 +5285,7 @@
 
       if(totalNetSales===null&&recognized.size){
         const reconstructLabels=[
-          "Food","Beverages","LBW","NA","Gameplay","Retail","Labor",
+          "Food","Donations","Beverages","LBW","NA","Gameplay","Retail","Labor",
           "Equipment Rental","Space Rental","Digital Media","Coach",
           "Fees","Other Fees","Voluntary Tip","Service Charge","Admin Fee"
         ];
@@ -5277,12 +5301,39 @@
       return totals;
     }
 
+    function mapToastFoodDonationRow(row){
+      const x=String(row||"").replace(/^[\s|•:]+/g,"").trim();
+      if(/^F[o0c][o0]d\b|^F\s+ood\b/i.test(x))return"Food";
+      if(/^Donat[i1l][o0]ns?\b/i.test(x))return"Donations";
+      return null;
+    }
+
+    function extractToastFoodDonationRowAmounts(row,category){
+      if(mapToastFoodDonationRow(row)!==category)return[];
+      const strict=extractToastAmounts(row);
+      if(strict.length)return strict;
+
+      // A lost $ should not hide a valid row. Still require all three
+      // money columns and exact net + discounts = gross validation.
+      const head=String(row||"").match(/^\s*[|•:]*\s*(?:F[o0c][o0]d|F\s+ood|Donat[i1l][o0]ns?)\b/i);
+      if(!head)return[];
+      const tokens=[
+        ...String(row).slice(head[0].length)
+          .matchAll(/(?<![A-Za-z0-9.])(?:[$S5]\s*)?(-?\d[\d,]*\.\d{2})(?!\d)/gi)
+      ];
+      if(tokens.length!==3)return[];
+      const values=tokens.map(token=>parseMoney(token[1]));
+      if(values.some(v=>v===null||!Number.isFinite(v)))return[];
+      return Math.abs(values[0]+values[1]-values[2])<=0.03?values:[];
+    }
+
     function mapToastCategory(row){
       const x=row.toLowerCase().replace(/\s+/g," ").trim();
 
       if(/\bbeer\b/.test(x)||/\bliquor\b/.test(x)||/\bwine\b/.test(x))return"LBW";
       if(/^n\/?a\s*bev\b|^na\s*bev\b|^non[- ]?alcoholic\b/.test(x))return"NA";
       if(/^food\b/.test(x))return"Food";
+      if(/^donations?\b/.test(x))return"Donations";
       if(/^event\s+drink\s+package\b|^drink\s+package\b|^beverage\s+package\b/.test(x))return"Beverages";
       if(/^game\s*play\b|^gameplay\b/.test(x))return"Gameplay";
       if(/^retail\b/.test(x))return"Retail";
@@ -5340,6 +5391,7 @@
       // Contracted boxes. Beverage packages stay separate from day-of L/B/W.
       const contracted={
         Food:Number(financial.categories.Food||0),
+        Donations:0,
         Beverages:Number(financial.categories.Beverages||0),
         LBW:Number(financial.categories.LBW||0),
         NA:Number(financial.categories.NA||0),
@@ -5384,7 +5436,7 @@
       }
 
       const expectedLabels=[
-        "Food","NA","Gameplay","Retail","Labor",
+        "Food","Donations","NA","Gameplay","Retail","Labor",
         "Equipment Rental","Space Rental","Digital Media","Coach",
         "Other Fees","Voluntary Tip","Admin Fee"
       ];
