@@ -456,6 +456,10 @@
       </header>
       <div class="updates-scroll" tabindex="0" aria-label="Update history">
         <article class="updates-entry">
+          <div class="updates-entry-title">Fixed Food in full Toast screenshots</div>
+          <div class="updates-entry-date">November 16, 2026</div>
+        </article>
+        <article class="updates-entry">
           <div class="updates-entry-title">Fixed Food and Donations from Toast screenshots</div>
           <div class="updates-entry-date">November 16, 2026</div>
         </article>
@@ -4875,6 +4879,7 @@
         await arType(scanLog,"Matching Toast categories to contract…");
 
         const toast=parseToastSales(text);
+        await recoverMissingToastFood(prepared,text,toast,scanLog);
         const comparison=compareAdditionalRevenue(toast,financial,parsed);
         group.toastData=toast;
 
@@ -4912,6 +4917,51 @@
         scanLog.textContent="Toast screenshot reader hit an error. Please paste the same screenshot again.";
         pasteZone.style.display="";
         pasteZone.classList.remove("processing");
+      }
+    }
+
+    async function recoverMissingToastFood(canvas,text,toast,scanLog){
+      // The report header sometimes makes OCR miss the Food row.
+      // Only recheck when Food is missing and the printed Total exceeds
+      // the sales already recognized. Other categories are never replaced.
+      if(toast.__recognized?.has("Food"))return;
+      const reported=toast.__totalNetSales;
+      if(reported===null||reported===undefined||!Number.isFinite(Number(reported)))return;
+      const counted=Object.entries(toast).reduce((sum,[label,value])=>
+        label.startsWith("__")?sum:sum+moneyCents(value),0
+      );
+      const unmatched=moneyCents(reported)-counted;
+      if(unmatched<=3)return;
+      if(!/Sales\s+Categor[yv]\s+Summary|Sales\s+breakdown|\bColumns\b/i.test(text))return;
+
+      // Skip Toast's top title and controls, but retain the category table.
+      // Width cap protects the first rows in taller screenshots.
+      const cut=Math.min(
+        Math.round(canvas.width*0.14),
+        Math.round(canvas.height*0.32)
+      );
+      if(cut<20||cut>=canvas.height-120)return;
+      const table=document.createElement("canvas");
+      table.width=canvas.width;
+      table.height=canvas.height-cut;
+      table.getContext("2d").drawImage(
+        canvas,0,cut,canvas.width,table.height,
+        0,0,canvas.width,table.height
+      );
+
+      try{
+        scanLog.textContent="Checking Toast Food row…";
+        const tableText=await recognizeToastImage(table,scanLog);
+        const found=parseToastSales(tableText);
+        if(!found.__recognized.has("Food"))return;
+        const recoveredCents=moneyCents(found.Food);
+        if(recoveredCents<=0||recoveredCents>unmatched+3)return;
+
+        toast.Food=centsMoney(recoveredCents);
+        toast.__recognized.add("Food");
+      }catch(error){
+        // If the optional second read fails, preserve the original results.
+        console.warn("Toast Food retry skipped:",error);
       }
     }
 
