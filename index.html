@@ -488,6 +488,10 @@
       </header>
       <div class="updates-scroll" tabindex="0" aria-label="Update history">
         <article class="updates-entry">
+          <div class="updates-entry-title">Updated original PDF download names</div>
+          <div class="updates-entry-date">November 17, 2026</div>
+        </article>
+        <article class="updates-entry">
           <div class="updates-entry-title">Added original BEO and recap downloads</div>
           <div class="updates-entry-date">November 17, 2026</div>
         </article>
@@ -1223,11 +1227,29 @@
       return true;
     }
 
+    function getOriginalPdfDownloadName(kind,fallbackName){
+      // Use the BEO event date, not the upload date or PDF filename.
+      const date=parseEventDate(getPrimaryEventDateRaw());
+      if(!date)return fallbackName;
+      const stamp=[
+        String(date.getMonth()+1).padStart(2,"0"),
+        String(date.getDate()).padStart(2,"0"),
+        String(date.getFullYear()).slice(-2)
+      ].join(".");
+      return (kind==="recap"?"Event Recaps ":"Manager BEOs ")+stamp+".pdf";
+    }
+
     downloadBeoOriginal.addEventListener("click",()=>{
-      downloadOriginalPdf(currentSourceBytes,currentUploadName);
+      downloadOriginalPdf(
+        currentSourceBytes,
+        getOriginalPdfDownloadName("manager",currentUploadName)
+      );
     });
     downloadRecapOriginal.addEventListener("click",()=>{
-      downloadOriginalPdf(currentRecapBytes,currentRecapUploadName||"Event Recaps.pdf");
+      downloadOriginalPdf(
+        currentRecapBytes,
+        getOriginalPdfDownloadName("recap",currentRecapUploadName||"Event Recaps.pdf")
+      );
     });
 
     uploadButton.addEventListener("click",()=>pdfInput.click());
